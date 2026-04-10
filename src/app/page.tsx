@@ -1,65 +1,145 @@
-import Image from "next/image";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import {
+  Card,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { BarChart3, Upload, Users, Shield } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <div className="flex flex-col min-h-full">
+      {/* Header */}
+      <header className="border-b">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4">
+          <div className="flex items-center gap-2">
+            <BarChart3 className="h-6 w-6" />
+            <span className="text-lg font-semibold">
+              Jewish Engagement Insights
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/login"
+              className={cn(buttonVariants({ variant: "ghost" }))}
+            >
+              Log in
+            </Link>
+            <Link href="/signup" className={cn(buttonVariants())}>
+              Sign up
+            </Link>
+          </div>
+        </div>
+      </header>
+
+      {/* Hero */}
+      <main className="flex-1">
+        <section className="container mx-auto flex flex-col items-center gap-8 px-4 py-24 text-center">
+          <h1 className="max-w-2xl text-4xl font-bold tracking-tight sm:text-5xl">
+            Understand Jewish engagement across your community
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="max-w-xl text-lg text-muted-foreground">
+            Upload event attendance data, see how your programs compare, and
+            build a richer picture of community engagement — all while keeping
+            participant data private.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+          <div className="flex gap-3">
+            <Link
+              href="/signup"
+              className={cn(buttonVariants({ size: "lg" }))}
+            >
+              Get started
+            </Link>
+            <Link
+              href="#features"
+              className={cn(buttonVariants({ variant: "outline", size: "lg" }))}
+            >
+              Learn more
+            </Link>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section
+          id="features"
+          className="container mx-auto grid gap-6 px-4 pb-24 sm:grid-cols-2 lg:grid-cols-3"
+        >
+          <Card>
+            <CardHeader>
+              <Upload className="h-8 w-8 text-muted-foreground mb-2" />
+              <CardTitle>Easy data upload</CardTitle>
+              <CardDescription>
+                Upload any spreadsheet of event attendees. Our system
+                intelligently maps your columns — no reformatting required.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Shield className="h-8 w-8 text-muted-foreground mb-2" />
+              <CardTitle>Privacy first</CardTitle>
+              <CardDescription>
+                Email addresses are stored in a secure, separate database.
+                Insights are generated from anonymized, aggregated data only.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <BarChart3 className="h-8 w-8 text-muted-foreground mb-2" />
+              <CardTitle>Cross-org insights</CardTitle>
+              <CardDescription>
+                See how your event demographics compare to similar programs
+                across the community. The more orgs participate, the richer the
+                data.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Users className="h-8 w-8 text-muted-foreground mb-2" />
+              <CardTitle>Population profiles</CardTitle>
+              <CardDescription>
+                Build a composite view of your members — demographics,
+                engagement patterns, and cross-organizational participation.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Event comparison</CardTitle>
+              <CardDescription>
+                Compare attendance patterns, age distributions, and engagement
+                levels across event types and time periods.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Role-based views</CardTitle>
+              <CardDescription>
+                Program managers, org leaders, and communal leaders each get
+                tailored dashboards with the insights they need.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </section>
       </main>
+
+      {/* Footer */}
+      <footer className="border-t py-6">
+        <div className="container mx-auto px-4 text-center text-sm text-muted-foreground">
+          Jewish Engagement Insights
+        </div>
+      </footer>
     </div>
   );
 }
