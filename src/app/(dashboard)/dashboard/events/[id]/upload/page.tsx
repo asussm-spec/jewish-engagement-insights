@@ -152,33 +152,24 @@ export default function UploadPage() {
     setMappings(autoMappings);
     setStep("map");
 
-    // Second pass: use AI for unmapped columns AND columns with ambiguous headers
-    // (empty headers, very short names, or names that might be mismatched)
-    const needsAiReview = cols.filter((col) => {
-      const mapping = autoMappings[col];
-      const header = col.toLowerCase().trim();
-      // Send to AI if: unmapped, empty/generic header, or short ambiguous name
-      if (mapping === "skip") return true;
-      if (header.startsWith("__empty") || header.startsWith("column") || header.startsWith("field")) return true;
-      if (header.length <= 8 && !["email", "age", "dob", "city", "gender"].includes(header)) return true;
-      return false;
-    });
-
-    const unmappedColumns = needsAiReview.map((col) => ({
+    // Second pass: send ALL columns to AI for intelligent mapping
+    // AI sees both header names and sample values, overrides regex where it has a better match
+    const allColumns = cols.map((col) => ({
       header: col,
+      currentMapping: autoMappings[col],
       sampleValues: data
         .slice(0, 8)
         .map((row) => row[col]?.toString() || "")
         .filter(Boolean),
     }));
 
-    if (unmappedColumns.length > 0) {
+    if (allColumns.length > 0) {
       setAiDetecting(true);
       try {
         const response = await fetch("/api/events/detect-columns", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ unmappedColumns }),
+          body: JSON.stringify({ unmappedColumns: allColumns }),
         });
         const result = await response.json();
         if (result.mappings) {

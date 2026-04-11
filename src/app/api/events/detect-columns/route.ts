@@ -44,8 +44,8 @@ export async function POST(request: Request) {
 
     const columnsDescription = unmappedColumns
       .map(
-        (col: { header: string; sampleValues: string[] }) =>
-          `Column: "${col.header}"\nSample values: ${col.sampleValues.slice(0, 5).map((v: string) => `"${v}"`).join(", ")}`
+        (col: { header: string; sampleValues: string[]; currentMapping?: string }) =>
+          `Column: "${col.header}"${col.currentMapping && col.currentMapping !== "skip" ? ` (currently mapped to: ${col.currentMapping})` : " (UNMAPPED)"}\nSample values: ${col.sampleValues.slice(0, 8).map((v: string) => `"${v}"`).join(", ")}`
       )
       .join("\n\n");
 
@@ -66,6 +66,7 @@ CRITICAL RULES:
 4. For child-related columns: "Kid 1", "Child 1", "First child" with name values → child_1_name. "Kid 2", "Second Kid", "Child 2" with name values → child_2_name. Similarly for DOBs.
 5. Numbers like "1", "2", "first", "second" in column names indicate which child (1st, 2nd, etc.).
 6. If sample values contain Jewish denominations (Reform, Conservative, Orthodox, etc.), map to "denomination".
+7. Some columns may already have a mapping from regex matching. If the current mapping is WRONG, override it with the correct one. For example, "Second kid DOB" currently mapped to "date_of_birth" should be corrected to "child_2_dob".
 
 Available fields in the registry:
 ${fieldList}
