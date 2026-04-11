@@ -152,16 +152,25 @@ export default function UploadPage() {
     setMappings(autoMappings);
     setStep("map");
 
-    // Second pass: use AI for any unmapped columns
-    const unmappedColumns = cols
-      .filter((col) => autoMappings[col] === "skip")
-      .map((col) => ({
-        header: col,
-        sampleValues: data
-          .slice(0, 5)
-          .map((row) => row[col]?.toString() || "")
-          .filter(Boolean),
-      }));
+    // Second pass: use AI for unmapped columns AND columns with ambiguous headers
+    // (empty headers, very short names, or names that might be mismatched)
+    const needsAiReview = cols.filter((col) => {
+      const mapping = autoMappings[col];
+      const header = col.toLowerCase().trim();
+      // Send to AI if: unmapped, empty/generic header, or short ambiguous name
+      if (mapping === "skip") return true;
+      if (header.startsWith("__empty") || header.startsWith("column") || header.startsWith("field")) return true;
+      if (header.length <= 8 && !["email", "age", "dob", "city", "gender"].includes(header)) return true;
+      return false;
+    });
+
+    const unmappedColumns = needsAiReview.map((col) => ({
+      header: col,
+      sampleValues: data
+        .slice(0, 8)
+        .map((row) => row[col]?.toString() || "")
+        .filter(Boolean),
+    }));
 
     if (unmappedColumns.length > 0) {
       setAiDetecting(true);

@@ -57,7 +57,15 @@ export async function POST(request: Request) {
       messages: [
         {
           role: "user",
-          content: `You are a data column mapper for a Jewish community engagement database. Given spreadsheet columns that weren't automatically matched, determine which field in our registry each column maps to.
+          content: `You are a data column mapper for a Jewish community engagement database. You must determine which field in our registry each spreadsheet column maps to.
+
+CRITICAL RULES:
+1. Look at BOTH the column header AND the sample values to determine the field type.
+2. If the header is empty, missing, or generic (like "__EMPTY", "Column1", "Field1"), you MUST use the sample values to determine the type. For example, if values look like email addresses (contain @), map to "email".
+3. Use contextual understanding: "Kid 1" with name values = child_1_name. "Second Kid" with name values = child_2_name. "Family Attending" with numbers = family_members_attending.
+4. For child-related columns: "Kid 1", "Child 1", "First child" with name values → child_1_name. "Kid 2", "Second Kid", "Child 2" with name values → child_2_name. Similarly for DOBs.
+5. Numbers like "1", "2", "first", "second" in column names indicate which child (1st, 2nd, etc.).
+6. If sample values contain Jewish denominations (Reform, Conservative, Orthodox, etc.), map to "denomination".
 
 Available fields in the registry:
 ${fieldList}
