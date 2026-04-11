@@ -207,7 +207,7 @@ export async function POST(request: Request) {
         .from("people_profiles")
         .upsert(profileUpdate, { onConflict: "id" });
 
-      // Add to event_attendees
+      // Add parent to event_attendees
       await serviceClient.from("event_attendees").upsert(
         {
           event_id: eventId,
@@ -218,6 +218,74 @@ export async function POST(request: Request) {
       );
 
       processedCount++;
+
+      // Process children as separate event attendees
+      // Look for child_N_name and child_N_dob fields in the mapped data
+      for (let childNum = 1; childNum <= 10; childNum++) {
+        const childNameCol = columnMap[`child_${childNum}_name`];
+        const childDobCol = columnMap[`child_${childNum}_dob`];
+
+        // Skip if no child name or DOB column is mapped for this number
+        if (!childNameCol && !childDobCol) continue;
+
+        const childName = childNameCol ? row[childNameCol]?.toString().trim() : null;
+        const childDob = childDobCol ? row[childDobCol]?.toString().trim() : null;
+
+        // Skip if both are empty for this row
+        if (!childName && !childDob) continue;
+
+        // Create a synthetic identity for the child (no real email)
+        const childSyntheticEmail = `child_${childNum}_of_${email}`;
+
+        const { data: childIdentity } = await serviceClient
+          .from("people_identities")
+          .upsert(
+            {
+              email: childSyntheticEmail,
+              first_name: childName || `Child ${childNum}`,
+              last_name: lastName || null,
+            },
+            { onConflict: "email" }
+          )
+          .select("id")
+          .single();
+
+        if (!childIdentity) continue;
+
+        // Build a minimal profile for the child
+        const childProfile: Record<string, unknown> = {
+          id: childIdentity.id,
+          attributes: { is_child: "true", parent_id: identity.id },
+        };
+
+        if (childDob) {
+          const birthDate = new Date(childDob);
+          if (!isNaN(birthDate.getTime())) {
+            childProfile.date_of_birth = childDob;
+            const age = Math.floor(
+              (Date.now() - birthDate.getTime()) /
+                (365.25 * 24 * 60 * 60 * 1000)
+            );
+            childProfile.age_bucket = computeAgeBucket(age);
+          }
+        }
+
+        await serviceClient
+          .from("people_profiles")
+          .upsert(childProfile, { onConflict: "id" });
+
+        // Add child as event attendee
+        await serviceClient.from("event_attendees").upsert(
+          {
+            event_id: eventId,
+            person_id: childIdentity.id,
+            raw_data: { child_of: email, child_name: childName, child_dob: childDob },
+          },
+          { onConflict: "event_id,person_id" }
+        );
+
+        processedCount++;
+      }
     }
 
     // Update attendee count on the event
