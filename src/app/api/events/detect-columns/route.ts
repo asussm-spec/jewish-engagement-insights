@@ -1,0 +1,100 @@
+import { NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
+import Anthropic from "@anthropic-ai/sdk";
+
+function getServiceClient() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
+
+export async function POST(request: Request) {
+  try {
+    // Verify authenticated
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { unmappedColumns } = await request.json();
+    // unmappedColumns: Array of { header: string, sampleValues: string[] }
+
+    if (!unmappedColumns || unmappedColumns.length === 0) {
+      return NextResponse.json({ mappings: {} });
+    }
+
+    // Fetch the full field registry
+    const serviceClient = getServiceClient();
+    const { data: fields } = await serviceClient
+      .from("field_registry")
+      .select("key, label, category, data_type");
+
+    if (!fields) {
+      return NextResponse.json({ mappings: {} });
+    }
+
+    const fieldList = fields
+      .map((f) => `- ${f.key}: ${f.label} (${f.category}, ${f.data_type})`)
+      .join("\n");
+
+    const columnsDescription = unmappedColumns
+      .map(
+        (col: { header: string; sampleValues: string[] }) =>
+          `Column: "${col.header}"\nSample values: ${col.sampleValues.slice(0, 5).map((v: string) => `"${v}"`).join(", ")}`
+      )
+      .join("\n\n");
+
+    const anthropic = new Anthropic();
+
+    const message = await anthropic.messages.create({
+      model: "claude-haiku-4-20250414",
+      max_tokens: 1024,
+      messages: [
+        {
+          role: "user",
+          content: `You are a data column mapper for a Jewish community engagement database. Given spreadsheet columns that weren't automatically matched, determine which field in our registry each column maps to.
+
+Available fields in the registry:
+${fieldList}
+
+You can also suggest "skip" if a column truly doesn't match any field, or "new_field" if it represents a genuinely new concept not in the registry. If suggesting "new_field", also provide a suggested key, label, and category.
+
+Columns to map:
+${columnsDescription}
+
+Respond with ONLY a JSON object mapping each column header to its field key. For new fields, use the format: {"header": {"action": "new_field", "key": "suggested_key", "label": "Suggested Label", "category": "category_name"}}. For existing matches: {"header": "field_key"}. For skips: {"header": "skip"}.
+
+JSON response:`,
+        },
+      ],
+    });
+
+    // Parse the response
+    const responseText =
+      message.content[0].type === "text" ? message.content[0].text : "";
+
+    let mappings: Record<string, unknown> = {};
+    try {
+      // Extract JSON from the response (handle markdown code blocks)
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        mappings = JSON.parse(jsonMatch[0]);
+      }
+    } catch {
+      console.error("Failed to parse AI response:", responseText);
+    }
+
+    return NextResponse.json({ mappings });
+  } catch (err) {
+    console.error("Column detection error:", err);
+    return NextResponse.json(
+      { error: "Failed to detect columns" },
+      { status: 500 }
+    );
+  }
+}

@@ -132,7 +132,9 @@ export default function UploadPage() {
     return "skip";
   }
 
-  function processRows(data: Record<string, string>[], name: string) {
+  const [aiDetecting, setAiDetecting] = useState(false);
+
+  async function processRows(data: Record<string, string>[], name: string) {
     if (data.length === 0) {
       setError("The file appears to be empty.");
       return;
@@ -142,13 +144,81 @@ export default function UploadPage() {
     setRows(data);
     setFileName(name);
 
-    // Auto-map columns using field registry patterns
+    // First pass: regex-based auto-mapping
     const autoMappings: Record<string, string> = {};
     cols.forEach((col) => {
       autoMappings[col] = guessMapping(col);
     });
     setMappings(autoMappings);
     setStep("map");
+
+    // Second pass: use AI for any unmapped columns
+    const unmappedColumns = cols
+      .filter((col) => autoMappings[col] === "skip")
+      .map((col) => ({
+        header: col,
+        sampleValues: data
+          .slice(0, 5)
+          .map((row) => row[col]?.toString() || "")
+          .filter(Boolean),
+      }));
+
+    if (unmappedColumns.length > 0) {
+      setAiDetecting(true);
+      try {
+        const response = await fetch("/api/events/detect-columns", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ unmappedColumns }),
+        });
+        const result = await response.json();
+        if (result.mappings) {
+          const updatedMappings = { ...autoMappings };
+          for (const [header, value] of Object.entries(result.mappings)) {
+            if (typeof value === "string" && value !== "skip") {
+              // Direct field match from AI
+              updatedMappings[header] = value;
+            } else if (
+              typeof value === "object" &&
+              value !== null &&
+              (value as Record<string, unknown>).action === "new_field"
+            ) {
+              // AI suggests a new field — for now map it and let user confirm
+              const suggestion = value as {
+                action: string;
+                key: string;
+                label: string;
+                category: string;
+              };
+              // Auto-create the field in the registry
+              const { data: newField } = await supabase
+                .from("field_registry")
+                .insert({
+                  key: suggestion.key,
+                  label: suggestion.label,
+                  category: suggestion.category,
+                  data_type: "text",
+                  match_patterns: [
+                    suggestion.key.replace(/_/g, ".?"),
+                  ],
+                })
+                .select()
+                .single();
+              if (newField) {
+                setFields((prev) => [...prev, newField as FieldDef]);
+                updatedMappings[header] = suggestion.key;
+              }
+            }
+          }
+          setMappings(updatedMappings);
+        }
+      } catch (err) {
+        console.error("AI column detection failed:", err);
+        // Non-fatal — user can still manually map
+      } finally {
+        setAiDetecting(false);
+      }
+    }
   }
 
   const handleFileChange = useCallback(
@@ -390,9 +460,9 @@ export default function UploadPage() {
             </div>
             <CardTitle className="text-xl">Map your columns</CardTitle>
             <CardDescription>
-              We&apos;ve auto-detected column types using pattern matching.
-              Review and adjust the mappings below. You can also create new field
-              types for columns we don&apos;t recognize.
+              We&apos;ve auto-detected column types using pattern matching
+              {aiDetecting ? " and are using AI to identify remaining columns..." : " and AI analysis"}.
+              Review and adjust the mappings below.
             </CardDescription>
           </CardHeader>
           <CardContent>
