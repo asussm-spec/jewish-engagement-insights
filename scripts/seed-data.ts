@@ -109,7 +109,7 @@ const eventTypes = [
   "cultural",
   "worship",
   "volunteer",
-] as const;
+];
 
 const eventNames: Record<string, string[]> = {
   holiday: [

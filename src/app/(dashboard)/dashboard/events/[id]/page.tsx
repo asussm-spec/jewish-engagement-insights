@@ -10,9 +10,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Upload, Users, CalendarDays } from "lucide-react";
-import { EventCharts } from "@/components/events/event-charts";
+import { ComparisonCharts } from "@/components/events/comparison-charts";
+import {
+  getEventBreakdown,
+  getOrgTypeBreakdown,
+  getCommunityTypeBreakdown,
+} from "@/lib/event-analytics";
 
 export default async function EventDetailPage({
   params,
@@ -28,32 +34,21 @@ export default async function EventDetailPage({
 
   const { data: event } = await supabase
     .from("events")
-    .select("*")
+    .select("*, organizations(name)")
     .eq("id", id)
     .single();
 
   if (!event) notFound();
 
-  // Get attendee profiles for charts
-  const { data: attendees } = await supabase
-    .from("event_attendees")
-    .select("person_id")
-    .eq("event_id", id);
+  // Fetch all three comparison datasets
+  const [thisEvent, orgEvents, communityEvents] = await Promise.all([
+    getEventBreakdown(supabase, id),
+    getOrgTypeBreakdown(supabase, event.organization_id, event.event_type, id),
+    getCommunityTypeBreakdown(supabase, event.event_type),
+  ]);
 
-  const personIds = attendees?.map((a) => a.person_id) || [];
-
-  let profileData: {
-    age_bucket: string | null;
-    denomination: string | null;
-  }[] = [];
-
-  if (personIds.length > 0) {
-    const { data } = await supabase
-      .from("people_profiles")
-      .select("age_bucket, denomination")
-      .in("id", personIds);
-    profileData = data || [];
-  }
+  const eventTypeLabel = event.event_type?.replace("_", " ") || "event";
+  const orgName = event.organizations?.name || "Your org";
 
   return (
     <div>
@@ -71,7 +66,7 @@ export default async function EventDetailPage({
           <h1 className="text-2xl font-bold tracking-tight">{event.name}</h1>
           <div className="flex items-center gap-3 mt-2">
             <Badge variant="secondary" className="capitalize">
-              {event.event_type?.replace("_", " ")}
+              {eventTypeLabel}
             </Badge>
             <span className="text-sm text-muted-foreground flex items-center gap-1">
               <CalendarDays className="h-3.5 w-3.5" />
@@ -101,15 +96,67 @@ export default async function EventDetailPage({
         </Link>
       </div>
 
-      {/* Charts */}
-      {profileData.length > 0 ? (
-        <EventCharts profiles={profileData} />
+      {thisEvent.totalAttendees > 0 ? (
+        <>
+          {/* Summary stats row */}
+          <div className="grid grid-cols-4 gap-4 mb-8">
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-3xl font-bold text-navy">
+                  {thisEvent.totalAttendees}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Event attendees
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-3xl font-bold text-navy">
+                  {orgEvents.totalAttendees}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {orgName} {eventTypeLabel} attendees
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-3xl font-bold text-navy">
+                  {communityEvents.totalAttendees}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Community {eventTypeLabel} attendees
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6">
+                <p className="text-3xl font-bold text-navy">
+                  {thisEvent.hasChildrenPct}%
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Have children
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Comparison charts */}
+          <ComparisonCharts
+            thisEvent={thisEvent}
+            orgEvents={orgEvents}
+            communityEvents={communityEvents}
+            eventTypeLabel={eventTypeLabel}
+            orgName={orgName}
+          />
+        </>
       ) : (
         <Card className="border-dashed">
           <CardHeader className="text-center py-12">
             <CardTitle className="text-lg">No attendee data yet</CardTitle>
             <CardDescription>
-              Upload a spreadsheet of attendees to see insights.
+              Upload a spreadsheet of attendees to see insights and comparisons.
             </CardDescription>
           </CardHeader>
         </Card>
