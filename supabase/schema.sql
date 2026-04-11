@@ -157,17 +157,11 @@ alter table organizations enable row level security;
 create policy "Anyone can view orgs" on organizations for select using (true);
 create policy "Authenticated users can create orgs" on organizations for insert with check (auth.role() = 'authenticated');
 
--- Profiles: users can read/update their own profile
+-- Profiles: authenticated users can read all profiles, update their own
 alter table profiles enable row level security;
-create policy "Users can view own profile" on profiles for select using (auth.uid() = id);
+create policy "Users can view profiles" on profiles for select
+  using (auth.role() = 'authenticated');
 create policy "Users can update own profile" on profiles for update using (auth.uid() = id);
--- Allow users to see other profiles in their org (for team visibility)
-create policy "Users can view org members" on profiles for select
-  using (
-    organization_id in (
-      select organization_id from profiles where id = auth.uid()
-    )
-  );
 
 -- Events: users can see events from their org
 alter table events enable row level security;
