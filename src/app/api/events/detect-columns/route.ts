@@ -49,7 +49,25 @@ export async function POST(request: Request) {
       )
       .join("\n\n");
 
-    const anthropic = new Anthropic();
+    // Load API key - try env var, then fall back to reading .env.local directly
+    let apiKey = process.env.ANTHROPIC_API_KEY;
+    if (!apiKey) {
+      try {
+        const fs = await import("fs");
+        const path = await import("path");
+        const envPath = path.join(process.cwd(), ".env.local");
+        const envContent = fs.readFileSync(envPath, "utf-8");
+        const match = envContent.match(/ANTHROPIC_API_KEY=(.+)/);
+        if (match) apiKey = match[1].trim();
+      } catch {
+        // ignore
+      }
+    }
+    if (!apiKey) {
+      console.error("ANTHROPIC_API_KEY not found");
+      return NextResponse.json({ mappings: {} });
+    }
+    const anthropic = new Anthropic({ apiKey });
 
     const message = await anthropic.messages.create({
       model: "claude-haiku-4-20250414",

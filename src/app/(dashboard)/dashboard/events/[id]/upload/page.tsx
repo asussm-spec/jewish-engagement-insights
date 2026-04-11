@@ -132,9 +132,7 @@ export default function UploadPage() {
     return "skip";
   }
 
-  const [aiDetecting, setAiDetecting] = useState(false);
-
-  async function processRows(data: Record<string, string>[], name: string) {
+  function processRows(data: Record<string, string>[], name: string) {
     if (data.length === 0) {
       setError("The file appears to be empty.");
       return;
@@ -152,73 +150,59 @@ export default function UploadPage() {
     setMappings(autoMappings);
     setStep("map");
 
-    // Second pass: send ALL columns to AI for intelligent mapping
-    // AI sees both header names and sample values, overrides regex where it has a better match
-    const allColumns = cols.map((col) => ({
-      header: col,
-      currentMapping: autoMappings[col],
-      sampleValues: data
-        .slice(0, 8)
-        .map((row) => row[col]?.toString() || "")
-        .filter(Boolean),
-    }));
+    // Second pass: value-based detection for columns still mapped to "skip"
+    // Look at sample values to infer the type
+    const updatedMappings = { ...autoMappings };
+    for (const col of cols) {
+      if (updatedMappings[col] !== "skip") continue;
+      const samples = data.slice(0, 8).map((row) => row[col]?.toString() || "").filter(Boolean);
+      if (samples.length === 0) continue;
 
-    if (allColumns.length > 0) {
-      setAiDetecting(true);
-      try {
-        const response = await fetch("/api/events/detect-columns", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ unmappedColumns: allColumns }),
-        });
-        const result = await response.json();
-        if (result.mappings) {
-          const updatedMappings = { ...autoMappings };
-          for (const [header, value] of Object.entries(result.mappings)) {
-            if (typeof value === "string" && value !== "skip") {
-              // Direct field match from AI
-              updatedMappings[header] = value;
-            } else if (
-              typeof value === "object" &&
-              value !== null &&
-              (value as Record<string, unknown>).action === "new_field"
-            ) {
-              // AI suggests a new field — for now map it and let user confirm
-              const suggestion = value as {
-                action: string;
-                key: string;
-                label: string;
-                category: string;
-              };
-              // Auto-create the field in the registry
-              const { data: newField } = await supabase
-                .from("field_registry")
-                .insert({
-                  key: suggestion.key,
-                  label: suggestion.label,
-                  category: suggestion.category,
-                  data_type: "text",
-                  match_patterns: [
-                    suggestion.key.replace(/_/g, ".?"),
-                  ],
-                })
-                .select()
-                .single();
-              if (newField) {
-                setFields((prev) => [...prev, newField as FieldDef]);
-                updatedMappings[header] = suggestion.key;
-              }
-            }
-          }
-          setMappings(updatedMappings);
+      // Check if values look like emails
+      const emailCount = samples.filter((s) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s)).length;
+      if (emailCount >= samples.length * 0.5) {
+        updatedMappings[col] = "email";
+        continue;
+      }
+
+      // Check if values look like dates
+      const dateCount = samples.filter((s) => /^\d{4}-\d{2}-\d{2}/.test(s) || /^\d{1,2}\/\d{1,2}\/\d{2,4}/.test(s)).length;
+      if (dateCount >= samples.length * 0.5) {
+        // It's a date — but which date field? Check the header for clues
+        const h = col.toLowerCase();
+        if (/kid|child|son|daughter/.test(h) && /2|two|second/.test(h)) {
+          updatedMappings[col] = "child_2_dob";
+        } else if (/kid|child|son|daughter/.test(h) && /3|three|third/.test(h)) {
+          updatedMappings[col] = "child_3_dob";
+        } else if (/kid|child|son|daughter/.test(h)) {
+          updatedMappings[col] = "child_1_dob";
+        } else {
+          updatedMappings[col] = "date_of_birth";
         }
-      } catch (err) {
-        console.error("AI column detection failed:", err);
-        // Non-fatal — user can still manually map
-      } finally {
-        setAiDetecting(false);
+        continue;
+      }
+
+      // Check if values look like denominations
+      const denomWords = ["reform", "conservative", "orthodox", "reconstructionist", "just jewish", "secular", "traditional"];
+      const denomCount = samples.filter((s) => denomWords.some((d) => s.toLowerCase().includes(d))).length;
+      if (denomCount >= samples.length * 0.3) {
+        updatedMappings[col] = "denomination";
+        continue;
+      }
+
+      // Check header for child name patterns (Kid 1, Second Kid, Child 2, etc.)
+      const h = col.toLowerCase();
+      if (/^(kid|child)\s*(1|one|#1)$/i.test(h) || /^first\s*(kid|child)$/i.test(h)) {
+        updatedMappings[col] = "child_1_name";
+      } else if (/^(kid|child)\s*(2|two|#2)$/i.test(h) || /^second\s*(kid|child)$/i.test(h)) {
+        updatedMappings[col] = "child_2_name";
+      } else if (/^(kid|child)\s*(3|three|#3)$/i.test(h) || /^third\s*(kid|child)$/i.test(h)) {
+        updatedMappings[col] = "child_3_name";
+      } else if (/^(kid|child)\s*(4|four|#4)$/i.test(h) || /^fourth\s*(kid|child)$/i.test(h)) {
+        updatedMappings[col] = "child_4_name";
       }
     }
+    setMappings(updatedMappings);
   }
 
   const handleFileChange = useCallback(
@@ -460,8 +444,7 @@ export default function UploadPage() {
             </div>
             <CardTitle className="text-xl">Map your columns</CardTitle>
             <CardDescription>
-              We&apos;ve auto-detected column types using pattern matching
-              {aiDetecting ? " and are using AI to identify remaining columns..." : " and AI analysis"}.
+              We&apos;ve auto-detected column types using pattern matching and value analysis.
               Review and adjust the mappings below.
             </CardDescription>
           </CardHeader>
