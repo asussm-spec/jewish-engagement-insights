@@ -111,23 +111,20 @@ export async function getEventBreakdown(
 /**
  * Get aggregate breakdown for all events of a given type within an org.
  */
+/**
+ * Get aggregate breakdown for all events of a given type within an org
+ * (includes the current event — this represents the full org picture).
+ */
 export async function getOrgTypeBreakdown(
   supabase: SupabaseClient,
   organizationId: string,
-  eventType: string,
-  excludeEventId?: string
+  eventType: string
 ): Promise<DemographicBreakdown> {
-  let query = supabase
+  const { data: events } = await supabase
     .from("events")
     .select("id")
     .eq("organization_id", organizationId)
     .eq("event_type", eventType);
-
-  if (excludeEventId) {
-    query = query.neq("id", excludeEventId);
-  }
-
-  const { data: events } = await query;
   if (!events || events.length === 0) return buildBreakdown([]);
 
   const eventIds = events.map((e) => e.id);

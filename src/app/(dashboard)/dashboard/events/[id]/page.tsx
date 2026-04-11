@@ -40,10 +40,13 @@ export default async function EventDetailPage({
 
   if (!event) notFound();
 
-  // Fetch all three comparison datasets
+  // Fetch all three comparison datasets:
+  // 1. This specific event
+  // 2. All events of this type from this org (including this event)
+  // 3. All events of this type across the entire community
   const [thisEvent, orgEvents, communityEvents] = await Promise.all([
     getEventBreakdown(supabase, id),
-    getOrgTypeBreakdown(supabase, event.organization_id, event.event_type, id),
+    getOrgTypeBreakdown(supabase, event.organization_id, event.event_type),
     getCommunityTypeBreakdown(supabase, event.event_type),
   ]);
 
@@ -112,21 +115,21 @@ export default async function EventDetailPage({
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-3xl font-bold text-navy">
+                <p className="text-3xl font-bold text-gold">
                   {orgEvents.totalAttendees}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  {orgName} {eventTypeLabel} attendees
+                  All {orgName} {eventTypeLabel} attendees
                 </p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-6">
-                <p className="text-3xl font-bold text-navy">
+                <p className="text-3xl font-bold" style={{ color: "#4a7c6f" }}>
                   {communityEvents.totalAttendees}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Community {eventTypeLabel} attendees
+                  All community {eventTypeLabel} attendees
                 </p>
               </CardContent>
             </Card>
