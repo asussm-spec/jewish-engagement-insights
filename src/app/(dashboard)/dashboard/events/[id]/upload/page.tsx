@@ -104,17 +104,27 @@ export default function UploadPage() {
     loadFields();
   }, [supabase]);
 
-  // Auto-detect column mapping using regex patterns from field registry
+  // Auto-detect column mapping using regex patterns from field registry.
+  // Sort fields so more specific patterns (longer keys with numbers) are checked
+  // before generic ones — e.g. child_1_dob before date_of_birth.
   function guessMapping(header: string): string {
     const h = header.toLowerCase().trim();
-    for (const field of fields) {
+
+    // Sort: fields with numbers in the key first (more specific), then by key length descending
+    const sorted = [...fields].sort((a, b) => {
+      const aHasNum = /\d/.test(a.key) ? 0 : 1;
+      const bHasNum = /\d/.test(b.key) ? 0 : 1;
+      if (aHasNum !== bHasNum) return aHasNum - bHasNum;
+      return b.key.length - a.key.length;
+    });
+
+    for (const field of sorted) {
       if (!field.match_patterns) continue;
       for (const pattern of field.match_patterns) {
         try {
           const regex = new RegExp(pattern, "i");
           if (regex.test(h)) return field.key;
         } catch {
-          // Invalid regex, try simple includes
           if (h.includes(pattern)) return field.key;
         }
       }
