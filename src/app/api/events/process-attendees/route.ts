@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createClient as createServiceClient } from "@supabase/supabase-js";
 
-// Use service role for people_identities (locked down by RLS)
 function getServiceClient() {
   return createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,9 +21,24 @@ function computeAgeBucket(age: number): string {
   return "61+";
 }
 
+// Core fields that have their own columns on people_profiles
+const CORE_PROFILE_FIELDS = new Set([
+  "date_of_birth",
+  "age",
+  "denomination",
+  "num_children",
+]);
+
+// Identity fields that go into people_identities
+const IDENTITY_FIELDS = new Set([
+  "email",
+  "first_name",
+  "last_name",
+  "full_name",
+]);
+
 export async function POST(request: Request) {
   try {
-    // Verify the user is authenticated
     const supabase = await createClient();
     const {
       data: { user },
@@ -43,7 +57,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Verify user owns this event's org
     const { data: event } = await supabase
       .from("events")
       .select("id, organization_id")
@@ -56,10 +69,12 @@ export async function POST(request: Request) {
 
     const serviceClient = getServiceClient();
 
-    // Find which columns map to which fields
+    // Build column map: field_key -> spreadsheet_column_name
     const columnMap: Record<string, string> = {};
-    for (const [col, field] of Object.entries(mappings as Record<string, string>)) {
-      if (field !== "skip") {
+    for (const [col, field] of Object.entries(
+      mappings as Record<string, string>
+    )) {
+      if (field !== "skip" && field !== "__new__") {
         columnMap[field] = col;
       }
     }
@@ -109,54 +124,82 @@ export async function POST(request: Request) {
 
       if (!identity) continue;
 
-      // Build anonymized profile data
+      // Build profile update — core columns + flexible attributes
       const profileUpdate: Record<string, unknown> = { id: identity.id };
+      const attributes: Record<string, unknown> = {};
 
-      if (columnMap.age) {
-        const age = parseInt(row[columnMap.age], 10);
-        if (!isNaN(age)) {
-          profileUpdate.age_bucket = computeAgeBucket(age);
-        }
-      }
+      for (const [fieldKey, colName] of Object.entries(columnMap)) {
+        if (IDENTITY_FIELDS.has(fieldKey)) continue; // Already handled above
 
-      if (columnMap.date_of_birth) {
-        const dob = row[columnMap.date_of_birth]?.toString().trim();
-        if (dob) {
-          profileUpdate.date_of_birth = dob;
-          // Compute age bucket from DOB
-          const birthDate = new Date(dob);
-          if (!isNaN(birthDate.getTime())) {
-            const age = Math.floor(
-              (Date.now() - birthDate.getTime()) / (365.25 * 24 * 60 * 60 * 1000)
-            );
-            profileUpdate.age_bucket = computeAgeBucket(age);
+        const rawValue = row[colName]?.toString().trim();
+        if (!rawValue) continue;
+
+        if (CORE_PROFILE_FIELDS.has(fieldKey)) {
+          // Handle core fields with their own columns
+          switch (fieldKey) {
+            case "age": {
+              const age = parseInt(rawValue, 10);
+              if (!isNaN(age)) {
+                profileUpdate.age_bucket = computeAgeBucket(age);
+              }
+              break;
+            }
+            case "date_of_birth": {
+              profileUpdate.date_of_birth = rawValue;
+              const birthDate = new Date(rawValue);
+              if (!isNaN(birthDate.getTime())) {
+                const age = Math.floor(
+                  (Date.now() - birthDate.getTime()) /
+                    (365.25 * 24 * 60 * 60 * 1000)
+                );
+                profileUpdate.age_bucket = computeAgeBucket(age);
+              }
+              break;
+            }
+            case "denomination": {
+              const denom = rawValue.toLowerCase();
+              const validDenoms = [
+                "reform",
+                "conservative",
+                "orthodox",
+                "reconstructionist",
+                "just_jewish",
+              ];
+              const normalized = denom.replace(/\s+/g, "_");
+              profileUpdate.denomination = validDenoms.includes(normalized)
+                ? normalized
+                : "other";
+              break;
+            }
+            case "num_children": {
+              const numKids = parseInt(rawValue, 10);
+              if (!isNaN(numKids)) {
+                profileUpdate.has_children = numKids > 0;
+                profileUpdate.number_of_children = numKids;
+              }
+              break;
+            }
           }
+        } else {
+          // All other fields go into the flexible attributes JSONB
+          attributes[fieldKey] = rawValue;
         }
       }
 
-      if (columnMap.denomination) {
-        const denom = row[columnMap.denomination]?.toString().trim().toLowerCase();
-        const validDenoms = [
-          "reform",
-          "conservative",
-          "orthodox",
-          "reconstructionist",
-          "just_jewish",
-        ];
-        if (denom) {
-          const normalized = denom.replace(/\s+/g, "_");
-          profileUpdate.denomination = validDenoms.includes(normalized)
-            ? normalized
-            : "other";
-        }
-      }
+      // Merge attributes with any existing ones
+      if (Object.keys(attributes).length > 0) {
+        // Fetch existing attributes to merge
+        const { data: existing } = await serviceClient
+          .from("people_profiles")
+          .select("attributes")
+          .eq("id", identity.id)
+          .single();
 
-      if (columnMap.num_children) {
-        const numKids = parseInt(row[columnMap.num_children], 10);
-        if (!isNaN(numKids)) {
-          profileUpdate.has_children = numKids > 0;
-          profileUpdate.number_of_children = numKids;
-        }
+        const merged = {
+          ...((existing?.attributes as Record<string, unknown>) || {}),
+          ...attributes,
+        };
+        profileUpdate.attributes = merged;
       }
 
       // Upsert anonymized people profile

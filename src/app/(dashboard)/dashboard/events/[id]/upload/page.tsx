@@ -1,15 +1,19 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Papa from "papaparse";
+import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -21,47 +25,42 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Upload, FileSpreadsheet, Check } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Check, Plus } from "lucide-react";
 import Link from "next/link";
 
-// Known field types the system can map to
-const fieldMappings = [
-  { value: "email", label: "Email address" },
-  { value: "first_name", label: "First name" },
-  { value: "last_name", label: "Last name" },
-  { value: "full_name", label: "Full name" },
-  { value: "age", label: "Age" },
-  { value: "date_of_birth", label: "Date of birth" },
-  { value: "denomination", label: "Denomination" },
-  { value: "num_children", label: "Number of children" },
-  { value: "spouse", label: "Spouse / Partner" },
-  { value: "membership_type", label: "Membership type" },
-  { value: "skip", label: "— Skip this column —" },
-];
-
-// Try to auto-detect what a column contains based on its header
-function guessMapping(header: string): string {
-  const h = header.toLowerCase().trim();
-  if (h.includes("email") || h.includes("e-mail")) return "email";
-  if (h === "first" || h === "first name" || h === "firstname") return "first_name";
-  if (h === "last" || h === "last name" || h === "lastname") return "last_name";
-  if (h === "name" || h === "full name" || h === "fullname") return "full_name";
-  if (h === "age") return "age";
-  if (h.includes("birth") || h === "dob") return "date_of_birth";
-  if (h.includes("denom")) return "denomination";
-  if (h.includes("child") || h.includes("kids")) return "num_children";
-  if (h.includes("spouse") || h.includes("partner")) return "spouse";
-  if (h.includes("member")) return "membership_type";
-  return "skip";
+interface FieldDef {
+  id: string;
+  key: string;
+  label: string;
+  category: string;
+  data_type: string;
+  match_patterns: string[];
 }
+
+const CATEGORY_LABELS: Record<string, string> = {
+  identity: "Identity",
+  demographics: "Demographics",
+  family: "Family",
+  jewish_identity: "Jewish Identity",
+  engagement: "Engagement",
+  geographic: "Geographic",
+};
+
+const CATEGORY_ORDER = [
+  "identity",
+  "demographics",
+  "family",
+  "jewish_identity",
+  "engagement",
+  "geographic",
+];
 
 type Step = "upload" | "map" | "confirm" | "done";
 
@@ -80,47 +79,164 @@ export default function UploadPage() {
   const [error, setError] = useState<string | null>(null);
   const [processedCount, setProcessedCount] = useState(0);
 
+  // Field registry from Supabase
+  const [fields, setFields] = useState<FieldDef[]>([]);
+  const [fieldsLoaded, setFieldsLoaded] = useState(false);
+
+  // New field dialog
+  const [showNewField, setShowNewField] = useState(false);
+  const [newFieldColumn, setNewFieldColumn] = useState("");
+  const [newFieldLabel, setNewFieldLabel] = useState("");
+  const [newFieldCategory, setNewFieldCategory] = useState("demographics");
+  const [newFieldType, setNewFieldType] = useState("text");
+
+  // Load field registry on mount
+  useEffect(() => {
+    async function loadFields() {
+      const { data } = await supabase
+        .from("field_registry")
+        .select("id, key, label, category, data_type, match_patterns")
+        .order("category")
+        .order("label");
+      if (data) setFields(data);
+      setFieldsLoaded(true);
+    }
+    loadFields();
+  }, [supabase]);
+
+  // Auto-detect column mapping using regex patterns from field registry
+  function guessMapping(header: string): string {
+    const h = header.toLowerCase().trim();
+    for (const field of fields) {
+      if (!field.match_patterns) continue;
+      for (const pattern of field.match_patterns) {
+        try {
+          const regex = new RegExp(pattern, "i");
+          if (regex.test(h)) return field.key;
+        } catch {
+          // Invalid regex, try simple includes
+          if (h.includes(pattern)) return field.key;
+        }
+      }
+    }
+    return "skip";
+  }
+
+  function processRows(data: Record<string, string>[], name: string) {
+    if (data.length === 0) {
+      setError("The file appears to be empty.");
+      return;
+    }
+    const cols = Object.keys(data[0]);
+    setHeaders(cols);
+    setRows(data);
+    setFileName(name);
+
+    // Auto-map columns using field registry patterns
+    const autoMappings: Record<string, string> = {};
+    cols.forEach((col) => {
+      autoMappings[col] = guessMapping(col);
+    });
+    setMappings(autoMappings);
+    setStep("map");
+  }
+
   const handleFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      setFileName(file.name);
       setError(null);
 
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete(results) {
-          const data = results.data as Record<string, string>[];
-          if (data.length === 0) {
-            setError("The file appears to be empty.");
-            return;
-          }
-          const cols = Object.keys(data[0]);
-          setHeaders(cols);
-          setRows(data);
+      const isExcel = /\.(xlsx|xls)$/i.test(file.name);
 
-          // Auto-map columns
-          const autoMappings: Record<string, string> = {};
-          cols.forEach((col) => {
-            autoMappings[col] = guessMapping(col);
-          });
-          setMappings(autoMappings);
-          setStep("map");
-        },
-        error(err) {
-          setError(`Failed to parse file: ${err.message}`);
-        },
-      });
+      if (isExcel) {
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+          try {
+            const workbook = XLSX.read(evt.target?.result, { type: "array" });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const data = XLSX.utils.sheet_to_json<Record<string, string>>(
+              firstSheet,
+              { defval: "", raw: false }
+            );
+            processRows(data, file.name);
+          } catch (err) {
+            setError(
+              `Failed to parse Excel file: ${err instanceof Error ? err.message : "Unknown error"}`
+            );
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } else {
+        Papa.parse(file, {
+          header: true,
+          skipEmptyLines: true,
+          complete(results) {
+            processRows(results.data as Record<string, string>[], file.name);
+          },
+          error(err) {
+            setError(`Failed to parse file: ${err.message}`);
+          },
+        });
+      }
     },
-    []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fields]
   );
 
   function updateMapping(column: string, value: string) {
+    if (value === "__new__") {
+      setNewFieldColumn(column);
+      setNewFieldLabel(column); // Pre-fill with the column header
+      setShowNewField(true);
+      return;
+    }
     setMappings((prev) => ({ ...prev, [column]: value }));
   }
 
+  async function handleCreateField() {
+    const key = newFieldLabel
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "_")
+      .replace(/^_|_$/g, "");
+
+    const { data, error: insertError } = await supabase
+      .from("field_registry")
+      .insert({
+        key,
+        label: newFieldLabel,
+        category: newFieldCategory,
+        data_type: newFieldType,
+        match_patterns: [key.replace(/_/g, ".?")],
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      setError(insertError.message);
+      return;
+    }
+
+    if (data) {
+      setFields((prev) => [...prev, data as FieldDef]);
+      setMappings((prev) => ({ ...prev, [newFieldColumn]: key }));
+    }
+    setShowNewField(false);
+  }
+
   const hasEmail = Object.values(mappings).includes("email");
+
+  // Group fields by category for the select dropdown
+  const fieldsByCategory = CATEGORY_ORDER.map((cat) => ({
+    category: cat,
+    label: CATEGORY_LABELS[cat] || cat,
+    fields: fields.filter((f) => f.category === cat),
+  })).filter((g) => g.fields.length > 0);
+
+  // Count how many columns are mapped (not skipped)
+  const mappedCount = Object.values(mappings).filter(
+    (v) => v !== "skip"
+  ).length;
 
   async function handleProcess() {
     setLoading(true);
@@ -132,7 +248,6 @@ export default function UploadPage() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Process each row via an API route (server-side to access people_identities)
       const response = await fetch("/api/events/process-attendees", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -156,6 +271,14 @@ export default function UploadPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (!fieldsLoaded) {
+    return (
+      <div className="flex items-center justify-center min-h-[40vh]">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
   }
 
   return (
@@ -251,45 +374,90 @@ export default function UploadPage() {
               <FileSpreadsheet className="h-5 w-5 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">{fileName}</span>
               <Badge variant="secondary">{rows.length} rows</Badge>
+              <Badge variant="secondary">
+                {mappedCount}/{headers.length} mapped
+              </Badge>
             </div>
             <CardTitle className="text-xl">Map your columns</CardTitle>
             <CardDescription>
-              We&apos;ve auto-detected some column types. Review and adjust the
-              mappings below.
+              We&apos;ve auto-detected column types using pattern matching.
+              Review and adjust the mappings below. You can also create new field
+              types for columns we don&apos;t recognize.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {headers.map((header) => (
-                <div
-                  key={header}
-                  className="flex items-center gap-4 rounded-lg border bg-white p-3"
-                >
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{header}</p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      e.g. {rows[0]?.[header] || "—"}
-                    </p>
-                  </div>
-                  <div className="w-48">
-                    <Select
-                      value={mappings[header] || "skip"}
-                      onValueChange={(v) => updateMapping(header, v ?? "skip")}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {fieldMappings.map((f) => (
-                          <SelectItem key={f.value} value={f.value}>
-                            {f.label}
+              {headers.map((header) => {
+                const currentMapping = mappings[header] || "skip";
+                const matchedField = fields.find(
+                  (f) => f.key === currentMapping
+                );
+                const isAutoMapped =
+                  currentMapping !== "skip" && matchedField;
+                return (
+                  <div
+                    key={header}
+                    className={`flex items-center gap-4 rounded-lg border p-3 ${
+                      isAutoMapped
+                        ? "bg-green-50/50 border-green-200"
+                        : "bg-white"
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium">{header}</p>
+                        {isAutoMapped && (
+                          <Badge
+                            variant="secondary"
+                            className="text-[10px] bg-green-100 text-green-700"
+                          >
+                            Auto
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        e.g. {rows[0]?.[header] || "—"}
+                      </p>
+                    </div>
+                    <div className="w-56">
+                      <Select
+                        value={currentMapping}
+                        onValueChange={(v) =>
+                          updateMapping(header, v ?? "skip")
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="skip">
+                            — Skip this column —
                           </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                          {fieldsByCategory.map((group) => (
+                            <SelectGroup key={group.category}>
+                              <SelectLabel>{group.label}</SelectLabel>
+                              {group.fields.map((f) => (
+                                <SelectItem key={f.key} value={f.key}>
+                                  {f.label}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          ))}
+                          <SelectGroup>
+                            <SelectLabel>Other</SelectLabel>
+                            <SelectItem value="__new__">
+                              <span className="flex items-center gap-1">
+                                <Plus className="h-3 w-3" />
+                                Create new field...
+                              </span>
+                            </SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {!hasEmail && (
@@ -311,7 +479,9 @@ export default function UploadPage() {
                 disabled={!hasEmail || loading}
                 onClick={handleProcess}
               >
-                {loading ? "Processing..." : `Process ${rows.length} attendees`}
+                {loading
+                  ? "Processing..."
+                  : `Process ${rows.length} attendees`}
               </Button>
             </div>
           </CardContent>
@@ -341,15 +511,92 @@ export default function UploadPage() {
               Back to events
             </Button>
             <Button
-              onClick={() =>
-                router.push(`/dashboard/events/${eventId}`)
-              }
+              onClick={() => router.push(`/dashboard/events/${eventId}`)}
             >
               View event insights
             </Button>
           </CardContent>
         </Card>
       )}
+
+      {/* New field dialog */}
+      <Dialog open={showNewField} onOpenChange={setShowNewField}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create a new field type</DialogTitle>
+            <DialogDescription>
+              This column doesn&apos;t match any known field. Create a new one
+              and it will be available for all future uploads.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Column from your file</Label>
+              <Input value={newFieldColumn} disabled />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="fieldLabel">Field name</Label>
+              <Input
+                id="fieldLabel"
+                value={newFieldLabel}
+                onChange={(e) => setNewFieldLabel(e.target.value)}
+                placeholder="e.g. Preschool enrollment"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select
+                  value={newFieldCategory}
+                  onValueChange={(v) => setNewFieldCategory(v ?? "demographics")}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {CATEGORY_ORDER.map((cat) => (
+                      <SelectItem key={cat} value={cat}>
+                        {CATEGORY_LABELS[cat]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Data type</Label>
+                <Select
+                  value={newFieldType}
+                  onValueChange={(v) => setNewFieldType(v ?? "text")}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="text">Text</SelectItem>
+                    <SelectItem value="number">Number</SelectItem>
+                    <SelectItem value="date">Date</SelectItem>
+                    <SelectItem value="boolean">Yes / No</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setShowNewField(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                disabled={!newFieldLabel.trim()}
+                onClick={handleCreateField}
+              >
+                Create field
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
