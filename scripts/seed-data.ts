@@ -98,55 +98,52 @@ const kidNames = [
   "Talia", "Jonah", "Ella", "Caleb", "Ruby", "Tom", "Olive", "Levi",
 ];
 
+// Event types must match the form values in events/new/page.tsx
 const eventTypes = [
-  "holiday", "holiday", "holiday",
-  "shabbat", "shabbat",
-  "educational", "educational",
-  "social", "social",
-  "family", "family",
-  "youth",
-  "fundraiser",
-  "cultural",
-  "worship",
-  "volunteer",
+  "holiday_calendar", "holiday_calendar", "holiday_calendar",
+  "worship_prayer", "worship_prayer",
+  "learning_education", "learning_education",
+  "community_social", "community_social",
+  "youth_family", "youth_family",
+  "youth_family",
+  "institutional",
+  "arts_culture",
+  "worship_prayer",
+  "tikkun_olam",
 ];
 
 const eventNames: Record<string, string[]> = {
-  holiday: [
+  holiday_calendar: [
     "Hanukkah Family Celebration", "Purim Carnival", "Passover Community Seder",
     "Rosh Hashanah Open House", "Sukkot Under the Stars", "Simchat Torah Dance Party",
     "Tu B'Shvat Planting Day", "Yom Ha'atzmaut Festival",
   ],
-  shabbat: [
-    "Friday Night Lights", "Tot Shabbat", "Shabbat Dinner Club",
-    "Young Professionals Shabbat", "Community Shabbat Lunch",
+  worship_prayer: [
+    "Friday Night Lights", "Tot Shabbat", "Shabbat Morning Service",
+    "Young Professionals Shabbat", "Community Shabbat Lunch", "High Holiday Services",
+    "Healing Service",
   ],
-  educational: [
+  learning_education: [
     "Adult Hebrew Class", "Torah Study Circle", "Jewish History Lecture Series",
     "Israel Current Events Panel", "Parenting Through a Jewish Lens",
   ],
-  social: [
+  community_social: [
     "New Member Welcome Social", "Young Families Mixer", "Game Night",
-    "Wine Tasting Evening", "Book Club Meeting",
+    "Wine Tasting Evening", "Book Club Meeting", "Shabbat Dinner Club",
   ],
-  family: [
+  youth_family: [
     "Family Fun Day", "PJ Library Storytime", "Kids Art Workshop",
     "Family Shabbat Cooking Class", "Nature Hike for Families",
-  ],
-  youth: [
     "Teen Leadership Retreat", "Youth Group Shabbaton", "Middle School Movie Night",
     "High School Community Service Day",
   ],
-  fundraiser: [
+  institutional: [
     "Annual Gala", "Phonathon", "Silent Auction Night",
   ],
-  cultural: [
+  arts_culture: [
     "Jewish Film Festival Screening", "Israeli Dance Night", "Klezmer Concert",
   ],
-  worship: [
-    "High Holiday Services", "Shabbat Morning Service", "Healing Service",
-  ],
-  volunteer: [
+  tikkun_olam: [
     "Food Bank Packing Day", "Habitat for Humanity Build", "Senior Home Visit",
   ],
 };
