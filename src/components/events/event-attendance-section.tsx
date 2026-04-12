@@ -16,8 +16,8 @@ import type { AttendanceComparison } from "@/lib/event-analytics";
 
 const COLORS = {
   thisEvent: "#1e2d6f",   // navy
-  allEvents: "#c8922a",   // gold
-  eventType: "#4a7c6f",   // teal
+  orgEvents: "#c8922a",   // gold
+  community: "#4a7c6f",   // teal
 };
 
 interface Props {
@@ -34,14 +34,14 @@ export function EventAttendanceSection({ attendance, orgName, eventTypeLabel }: 
       fill: COLORS.thisEvent,
     },
     {
-      name: "All Events",
-      value: attendance.allOrgEvents,
-      fill: COLORS.allEvents,
+      name: `All ${orgName} ${eventTypeLabel}`,
+      value: attendance.orgEventTypeEvents,
+      fill: COLORS.orgEvents,
     },
     {
-      name: `All ${eventTypeLabel} Events`,
-      value: attendance.orgEventTypeEvents,
-      fill: COLORS.eventType,
+      name: `All Communal ${eventTypeLabel}`,
+      value: attendance.communityEventTypeEvents,
+      fill: COLORS.community,
     },
   ];
 
@@ -53,7 +53,7 @@ export function EventAttendanceSection({ attendance, orgName, eventTypeLabel }: 
     <Card>
       <CardHeader>
         <CardTitle className="text-base">
-          Compared to {orgName} Attendance
+          Event Attendance
         </CardTitle>
       </CardHeader>
       <CardContent>

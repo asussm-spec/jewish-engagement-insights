@@ -11,8 +11,8 @@ export interface DemographicBreakdown {
 
 export interface AttendanceComparison {
   thisEvent: number;
-  allOrgEvents: number;
   orgEventTypeEvents: number;
+  communityEventTypeEvents: number;
 }
 
 export interface DemographicField {
@@ -193,15 +193,24 @@ export async function getAttendanceComparison(
     ? new Set(thisEventAttendees.map((a) => a.person_id)).size
     : 0;
 
-  // All org events (with date filter)
-  const allOrgIds = await getOrgEventIds(supabase, organizationId, dateFilter);
-  const allOrgEvents = await getUniqueAttendeeCount(supabase, allOrgIds);
-
   // All org events of this type (with date filter)
   const orgTypeIds = await getOrgEventTypeIds(supabase, organizationId, eventType, dateFilter);
   const orgEventTypeEvents = await getUniqueAttendeeCount(supabase, orgTypeIds);
 
-  return { thisEvent, allOrgEvents, orgEventTypeEvents };
+  // All community events of this type (across all orgs, with date filter)
+  let communityQuery = supabase
+    .from("events")
+    .select("id")
+    .eq("event_type", eventType);
+  if (dateFilter) {
+    if (dateFilter.start) communityQuery = communityQuery.gte("event_date", dateFilter.start);
+    if (dateFilter.end) communityQuery = communityQuery.lte("event_date", dateFilter.end);
+  }
+  const { data: communityEvents } = await communityQuery;
+  const communityEventIds = communityEvents?.map((e) => e.id) || [];
+  const communityEventTypeEvents = await getUniqueAttendeeCount(supabase, communityEventIds);
+
+  return { thisEvent, orgEventTypeEvents, communityEventTypeEvents };
 }
 
 // ── Demographics with coverage-based field detection ──
@@ -304,6 +313,18 @@ export async function getEventDemographics(
   }
 
   // Dynamic attributes from JSONB — scan all profiles and find common attributes
+  // First, fetch field registry to know which fields are text (non-chartable)
+  const { data: registryFields } = await supabase
+    .from("field_registry")
+    .select("key, data_type");
+  const fieldTypes: Record<string, string> = {};
+  if (registryFields) {
+    for (const f of registryFields) fieldTypes[f.key] = f.data_type;
+  }
+
+  // Skip text-type fields — names, addresses, free-text aren't meaningful in charts
+  const NON_CHARTABLE_TYPES = new Set(["text", "date"]);
+
   const attrCounts: Record<string, Record<string, number>> = {};
   const attrTotals: Record<string, number> = {};
   for (const p of profiles) {
@@ -312,6 +333,8 @@ export async function getEventDemographics(
     for (const [key, value] of Object.entries(attrs)) {
       if (key === "is_child" || key === "parent_id") continue; // skip internal attrs
       if (!value || typeof value !== "string") continue;
+      // Skip fields whose registry data_type is text
+      if (NON_CHARTABLE_TYPES.has(fieldTypes[key] || "")) continue;
       if (!attrCounts[key]) attrCounts[key] = {};
       attrCounts[key][value] = (attrCounts[key][value] || 0) + 1;
       attrTotals[key] = (attrTotals[key] || 0) + 1;
