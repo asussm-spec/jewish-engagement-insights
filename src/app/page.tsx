@@ -13,6 +13,8 @@ import {
   Building2,
   TrendingUp,
   CheckCircle2,
+  Fingerprint,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -140,36 +142,43 @@ export default function Home() {
                 How it works
               </p>
               <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-                Three steps to community insights
+                From raw data to community insights
               </h2>
               <p className="mt-4 text-lg text-muted-foreground">
-                No data formatting required. Upload what you have and let the
-                system do the rest.
+                No data formatting required. Upload what you have and the system
+                handles anonymization, identity resolution, and insight generation.
               </p>
             </div>
 
-            <div className="mx-auto mt-16 grid max-w-5xl gap-8 md:grid-cols-3">
+            <div className="mx-auto mt-16 grid max-w-5xl gap-8 md:grid-cols-2 lg:grid-cols-4">
               {[
                 {
                   step: "01",
                   icon: Upload,
-                  title: "Upload your data",
+                  title: "Submit your data",
                   description:
                     "Upload any spreadsheet of event attendees or members. Our AI maps your columns automatically — names, emails, ages, whatever you track.",
                 },
                 {
                   step: "02",
                   icon: Shield,
-                  title: "We anonymize & merge",
+                  title: "PII is scrubbed",
                   description:
-                    "Emails go into a private vault. Demographic data is anonymized and merged with the community-wide dataset, building richer profiles over time.",
+                    "The system strips all personally identifiable information — emails, names, and addresses — and stores it in a secure, isolated database that powers nothing but identity resolution.",
                 },
                 {
                   step: "03",
-                  icon: TrendingUp,
-                  title: "Get actionable insights",
+                  icon: Fingerprint,
+                  title: "Anonymous IDs are created",
                   description:
-                    "See who attends your events, how your programs compare to similar ones, and what engagement patterns look like across the community.",
+                    "Each person receives a unique anonymized user ID. This is the only identifier used going forward — it links data across uploads and organizations without ever exposing who someone is.",
+                },
+                {
+                  step: "04",
+                  icon: Sparkles,
+                  title: "Insights are generated",
+                  description:
+                    "Anonymous IDs connect data across the community, building richer profiles over time. See who attends your events, how programs compare, and what engagement looks like — all without PII.",
                 },
               ].map((item) => (
                 <div
@@ -296,6 +305,8 @@ export default function Home() {
                 {
                   icon: Users,
                   role: "Program Managers",
+                  benefit:
+                    "See how your event compares to similar events across the ecosystem, and gain a richer understanding of your attendees — not just the variables you collect, but accumulated data from across the community on those same people.",
                   points: [
                     "Upload event attendance data",
                     "See attendee demographics and engagement",
@@ -306,6 +317,8 @@ export default function Home() {
                 {
                   icon: Building2,
                   role: "Organizational Leaders",
+                  benefit:
+                    "See the effectiveness of your events as a whole and understand your population beyond just the variables you collect — leveraging community-wide data accumulated on those same individuals.",
                   points: [
                     "View aggregate event performance",
                     "Understand who your org serves",
@@ -316,6 +329,8 @@ export default function Home() {
                 {
                   icon: TrendingUp,
                   role: "Communal Leaders",
+                  benefit:
+                    "Develop a picture of engagement across the entire community with an accumulated understanding of the demographic makeup of your local population.",
                   points: [
                     "See community-wide engagement patterns",
                     "Understand how orgs serve the community",
@@ -332,6 +347,9 @@ export default function Home() {
                     <persona.icon className="h-6 w-6 text-gold" />
                   </div>
                   <h3 className="mt-5 text-lg font-semibold">{persona.role}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                    {persona.benefit}
+                  </p>
                   <Separator className="my-4" />
                   <ul className="space-y-3">
                     {persona.points.map((point) => (
