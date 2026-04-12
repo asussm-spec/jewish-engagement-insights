@@ -34,20 +34,34 @@ const orgTypes = [
   { value: "other", label: "Other" },
 ];
 
+// Subtype options by org type. Org types not listed here have no subtypes.
+const subtypesByOrgType: Record<string, { value: string; label: string }[]> = {
+  synagogue: [
+    { value: "reform", label: "Reform" },
+    { value: "conservative", label: "Conservative" },
+    { value: "orthodox", label: "Orthodox" },
+    { value: "reconstructionist", label: "Reconstructionist" },
+    { value: "other", label: "Other" },
+  ],
+  day_school: [
+    { value: "orthodox", label: "Orthodox" },
+    { value: "non_orthodox", label: "Non-Orthodox" },
+  ],
+  camp: [
+    { value: "day_camp", label: "Day Camp" },
+    { value: "overnight", label: "Overnight" },
+  ],
+  social_service: [
+    { value: "housing", label: "Housing" },
+    { value: "food_bank", label: "Food Bank" },
+    { value: "other", label: "Other" },
+  ],
+};
+
 const roles = [
   { value: "program_manager", label: "Program Manager" },
   { value: "org_leader", label: "Organizational Leader" },
   { value: "communal_leader", label: "Communal Leader" },
-];
-
-const denominations = [
-  "Reform",
-  "Conservative",
-  "Orthodox",
-  "Reconstructionist",
-  "Just Jewish",
-  "Non-denominational",
-  "Other",
 ];
 
 interface MatchedOrg {
@@ -273,7 +287,7 @@ export default function OnboardingPage() {
 
               <div className="space-y-2">
                 <Label>Organization type</Label>
-                <Select value={orgType} onValueChange={(v) => setOrgType(v ?? "")} required>
+                <Select value={orgType} onValueChange={(v) => { setOrgType(v ?? ""); setSubtype(""); }} required>
                   <SelectTrigger>
                     <SelectValue placeholder="Select type" />
                   </SelectTrigger>
@@ -287,17 +301,19 @@ export default function OnboardingPage() {
                 </Select>
               </div>
 
-              {orgType === "synagogue" && (
+              {subtypesByOrgType[orgType] && (
                 <div className="space-y-2">
-                  <Label>Denomination</Label>
+                  <Label>
+                    {orgType === "synagogue" ? "Denomination" : "Subtype"}
+                  </Label>
                   <Select value={subtype} onValueChange={(v) => setSubtype(v ?? "")}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select denomination" />
+                      <SelectValue placeholder="Select..." />
                     </SelectTrigger>
                     <SelectContent>
-                      {denominations.map((d) => (
-                        <SelectItem key={d} value={d.toLowerCase()}>
-                          {d}
+                      {subtypesByOrgType[orgType].map((s) => (
+                        <SelectItem key={s.value} value={s.value}>
+                          {s.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
