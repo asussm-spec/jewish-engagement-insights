@@ -13,10 +13,9 @@ import {
   Building2,
   TrendingUp,
   CheckCircle2,
-  Fingerprint,
-  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { HowItWorks } from "@/components/marketing/how-it-works";
 
 export default function Home() {
   return (
@@ -135,73 +134,7 @@ export default function Home() {
         </section>
 
         {/* How it works */}
-        <section id="how-it-works" className="border-b bg-cream">
-          <div className="container mx-auto px-6 py-24">
-            <div className="mx-auto max-w-2xl text-center">
-              <p className="text-sm font-semibold uppercase tracking-widest text-gold">
-                How it works
-              </p>
-              <h2 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-                From raw data to community insights
-              </h2>
-              <p className="mt-4 text-lg text-muted-foreground">
-                No data formatting required. Upload what you have and the system
-                handles anonymization, identity resolution, and insight generation.
-              </p>
-            </div>
-
-            <div className="mx-auto mt-16 grid max-w-5xl gap-8 md:grid-cols-2 lg:grid-cols-4">
-              {[
-                {
-                  step: "01",
-                  icon: Upload,
-                  title: "Submit your data",
-                  description:
-                    "Upload any spreadsheet of event attendees or members. Our AI maps your columns automatically — names, emails, ages, whatever you track.",
-                },
-                {
-                  step: "02",
-                  icon: Shield,
-                  title: "PII is scrubbed",
-                  description:
-                    "The system strips all personally identifiable information — emails, names, and addresses — and stores it in a secure, isolated database that powers nothing but identity resolution.",
-                },
-                {
-                  step: "03",
-                  icon: Fingerprint,
-                  title: "Anonymous IDs are created",
-                  description:
-                    "Each person receives a unique anonymized user ID. This is the only identifier used going forward — it links data across uploads and organizations without ever exposing who someone is.",
-                },
-                {
-                  step: "04",
-                  icon: Sparkles,
-                  title: "Insights are generated",
-                  description:
-                    "Anonymous IDs connect data across the community, building richer profiles over time. See who attends your events, how programs compare, and what engagement looks like — all without PII.",
-                },
-              ].map((item) => (
-                <div
-                  key={item.step}
-                  className="relative rounded-2xl border bg-white p-8 shadow-sm transition-shadow hover:shadow-md"
-                >
-                  <div className="mb-5 flex items-center gap-3">
-                    <span className="text-3xl font-bold text-gold/40">
-                      {item.step}
-                    </span>
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-navy/5">
-                      <item.icon className="h-5 w-5 text-navy" />
-                    </div>
-                  </div>
-                  <h3 className="text-lg font-semibold">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-                    {item.description}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
+        <HowItWorks />
 
         {/* Features */}
         <section id="features" className="border-b">
