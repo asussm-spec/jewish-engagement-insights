@@ -12,7 +12,9 @@ export interface DemographicBreakdown {
 export interface AttendanceComparison {
   thisEvent: number;
   orgEventTypeEvents: number;
+  orgEventTypeCount: number;       // number of events in this org of this type
   communityEventTypeEvents: number;
+  communityEventTypeCount: number; // number of events community-wide of this type
 }
 
 export interface DemographicField {
@@ -210,7 +212,13 @@ export async function getAttendanceComparison(
   const communityEventIds = communityEvents?.map((e) => e.id) || [];
   const communityEventTypeEvents = await getUniqueAttendeeCount(supabase, communityEventIds);
 
-  return { thisEvent, orgEventTypeEvents, communityEventTypeEvents };
+  return {
+    thisEvent,
+    orgEventTypeEvents,
+    orgEventTypeCount: orgTypeIds.length,
+    communityEventTypeEvents,
+    communityEventTypeCount: communityEventIds.length,
+  };
 }
 
 // ── Demographics with coverage-based field detection ──

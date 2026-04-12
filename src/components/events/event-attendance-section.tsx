@@ -3,8 +3,6 @@
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   ChartContainer,
@@ -27,19 +25,21 @@ interface Props {
 }
 
 export function EventAttendanceSection({ attendance, orgName, eventTypeLabel }: Props) {
+  const typeLabel = eventTypeLabel.charAt(0).toUpperCase() + eventTypeLabel.slice(1);
+
   const data = [
     {
-      name: "This Event",
+      name: `This Event`,
       value: attendance.thisEvent,
       fill: COLORS.thisEvent,
     },
     {
-      name: `All ${orgName} ${eventTypeLabel}`,
+      name: `${orgName} ${typeLabel} Events (n=${attendance.orgEventTypeCount})`,
       value: attendance.orgEventTypeEvents,
       fill: COLORS.orgEvents,
     },
     {
-      name: `All Communal ${eventTypeLabel}`,
+      name: `All Communal ${typeLabel} Events (n=${attendance.communityEventTypeCount})`,
       value: attendance.communityEventTypeEvents,
       fill: COLORS.community,
     },
@@ -51,21 +51,16 @@ export function EventAttendanceSection({ attendance, orgName, eventTypeLabel }: 
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-base">
-          Event Attendance
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ChartContainer config={chartConfig} className="h-[280px]">
+      <CardContent className="pt-6">
+        <ChartContainer config={chartConfig} className="h-[220px]">
           <BarChart data={data} layout="vertical" margin={{ left: 20 }}>
             <XAxis type="number" fontSize={12} tickLine={false} allowDecimals={false} />
             <YAxis
               dataKey="name"
               type="category"
-              fontSize={12}
+              fontSize={11}
               tickLine={false}
-              width={140}
+              width={260}
             />
             <ChartTooltip
               content={<ChartTooltipContent />}
