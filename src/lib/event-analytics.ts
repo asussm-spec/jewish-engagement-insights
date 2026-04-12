@@ -184,7 +184,8 @@ export async function getAttendanceComparison(
   eventId: string,
   organizationId: string,
   eventType: string,
-  dateFilter?: DateFilter
+  dateFilter?: DateFilter,
+  serviceClient?: SupabaseClient // bypasses RLS for cross-org community queries
 ): Promise<AttendanceComparison> {
   // This specific event's attendee count (always unfiltered — it's one event)
   const { data: thisEventAttendees } = await supabase
@@ -211,7 +212,9 @@ export async function getAttendanceComparison(
   const orgEventTypeAvg = orgEventTypeCount > 0 ? Math.round(orgTotalAttendees / orgEventTypeCount) : 0;
 
   // All community events of this type (across all orgs)
-  let communityQuery = supabase
+  // Use service client to bypass RLS so we see events from ALL orgs
+  const communityClient = serviceClient || supabase;
+  let communityQuery = communityClient
     .from("events")
     .select("id, attendee_count")
     .eq("event_type", eventType);

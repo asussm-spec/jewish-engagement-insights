@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createClient as createServiceClient } from "@supabase/supabase-js";
 import { getAttendanceComparison } from "@/lib/event-analytics";
 
 export async function GET(request: NextRequest) {
@@ -30,12 +31,18 @@ export async function GET(request: NextRequest) {
       ? { start: startDate, end: endDate }
       : undefined;
 
+    const serviceClient = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
+
     const attendance = await getAttendanceComparison(
       supabase,
       eventId,
       organizationId,
       eventType,
-      dateFilter
+      dateFilter,
+      serviceClient
     );
 
     return NextResponse.json(attendance);

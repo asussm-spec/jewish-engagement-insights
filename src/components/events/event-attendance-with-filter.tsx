@@ -129,6 +129,8 @@ export function EventAttendanceWithFilter({
           attendance={attendance}
           orgName={orgName}
           eventTypeLabel={eventTypeLabel}
+          organizationId={organizationId}
+          eventType={eventType}
         />
       </div>
     </div>
