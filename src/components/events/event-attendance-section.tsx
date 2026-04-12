@@ -31,16 +31,19 @@ export function EventAttendanceSection({ attendance, orgName, eventTypeLabel }: 
     {
       name: `This Event`,
       value: attendance.thisEvent,
+      detail: `${attendance.thisEvent} attendees`,
       fill: COLORS.thisEvent,
     },
     {
-      name: `${orgName} ${typeLabel} Events (n=${attendance.orgEventTypeCount})`,
-      value: attendance.orgEventTypeEvents,
+      name: `Avg. ${orgName} ${typeLabel} Event (n=${attendance.orgEventTypeCount})`,
+      value: attendance.orgEventTypeAvg,
+      detail: `${attendance.orgEventTypeAvg} avg. attendees across ${attendance.orgEventTypeCount} events`,
       fill: COLORS.orgEvents,
     },
     {
-      name: `All Communal ${typeLabel} Events (n=${attendance.communityEventTypeCount})`,
-      value: attendance.communityEventTypeEvents,
+      name: `Avg. Communal ${typeLabel} Event (n=${attendance.communityEventTypeCount})`,
+      value: attendance.communityEventTypeAvg,
+      detail: `${attendance.communityEventTypeAvg} avg. attendees across ${attendance.communityEventTypeCount} events`,
       fill: COLORS.community,
     },
   ];
@@ -52,20 +55,29 @@ export function EventAttendanceSection({ attendance, orgName, eventTypeLabel }: 
   return (
     <Card>
       <CardContent className="pt-6">
-        <ChartContainer config={chartConfig} className="h-[220px]">
-          <BarChart data={data} layout="vertical" margin={{ left: 20 }}>
+        {/* Labels above the chart */}
+        <div className="space-y-6 mb-2">
+          {data.map((item) => (
+            <div key={item.name} className="flex items-center gap-2">
+              <span
+                className="inline-block w-3 h-3 rounded-sm shrink-0"
+                style={{ backgroundColor: item.fill }}
+              />
+              <span className="text-sm font-medium">{item.name}</span>
+              <span className="text-sm text-muted-foreground">
+                — {item.detail}
+              </span>
+            </div>
+          ))}
+        </div>
+        <ChartContainer config={chartConfig} className="h-[160px]">
+          <BarChart data={data} layout="vertical" margin={{ left: 0, right: 20 }}>
             <XAxis type="number" fontSize={12} tickLine={false} allowDecimals={false} />
-            <YAxis
-              dataKey="name"
-              type="category"
-              fontSize={11}
-              tickLine={false}
-              width={260}
-            />
+            <YAxis hide />
             <ChartTooltip
               content={<ChartTooltipContent />}
             />
-            <Bar dataKey="value" radius={[0, 4, 4, 0]}>
+            <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={32}>
               {data.map((entry, index) => (
                 <Cell key={index} fill={entry.fill} />
               ))}

@@ -11,9 +11,9 @@ export interface DemographicBreakdown {
 
 export interface AttendanceComparison {
   thisEvent: number;
-  orgEventTypeEvents: number;
+  orgEventTypeAvg: number;         // average attendees per event for this org+type
   orgEventTypeCount: number;       // number of events in this org of this type
-  communityEventTypeEvents: number;
+  communityEventTypeAvg: number;   // average attendees per event community-wide for this type
   communityEventTypeCount: number; // number of events community-wide of this type
 }
 
@@ -195,29 +195,41 @@ export async function getAttendanceComparison(
     ? new Set(thisEventAttendees.map((a) => a.person_id)).size
     : 0;
 
-  // All org events of this type (with date filter)
-  const orgTypeIds = await getOrgEventTypeIds(supabase, organizationId, eventType, dateFilter);
-  const orgEventTypeEvents = await getUniqueAttendeeCount(supabase, orgTypeIds);
+  // All org events of this type — get attendee counts per event for averaging
+  let orgQuery = supabase
+    .from("events")
+    .select("id, attendee_count")
+    .eq("organization_id", organizationId)
+    .eq("event_type", eventType);
+  if (dateFilter) {
+    if (dateFilter.start) orgQuery = orgQuery.gte("event_date", dateFilter.start);
+    if (dateFilter.end) orgQuery = orgQuery.lte("event_date", dateFilter.end);
+  }
+  const { data: orgEvents } = await orgQuery;
+  const orgEventTypeCount = orgEvents?.length || 0;
+  const orgTotalAttendees = orgEvents?.reduce((sum, e) => sum + (e.attendee_count || 0), 0) || 0;
+  const orgEventTypeAvg = orgEventTypeCount > 0 ? Math.round(orgTotalAttendees / orgEventTypeCount) : 0;
 
-  // All community events of this type (across all orgs, with date filter)
+  // All community events of this type (across all orgs)
   let communityQuery = supabase
     .from("events")
-    .select("id")
+    .select("id, attendee_count")
     .eq("event_type", eventType);
   if (dateFilter) {
     if (dateFilter.start) communityQuery = communityQuery.gte("event_date", dateFilter.start);
     if (dateFilter.end) communityQuery = communityQuery.lte("event_date", dateFilter.end);
   }
   const { data: communityEvents } = await communityQuery;
-  const communityEventIds = communityEvents?.map((e) => e.id) || [];
-  const communityEventTypeEvents = await getUniqueAttendeeCount(supabase, communityEventIds);
+  const communityEventTypeCount = communityEvents?.length || 0;
+  const communityTotalAttendees = communityEvents?.reduce((sum, e) => sum + (e.attendee_count || 0), 0) || 0;
+  const communityEventTypeAvg = communityEventTypeCount > 0 ? Math.round(communityTotalAttendees / communityEventTypeCount) : 0;
 
   return {
     thisEvent,
-    orgEventTypeEvents,
-    orgEventTypeCount: orgTypeIds.length,
-    communityEventTypeEvents,
-    communityEventTypeCount: communityEventIds.length,
+    orgEventTypeAvg,
+    orgEventTypeCount,
+    communityEventTypeAvg,
+    communityEventTypeCount,
   };
 }
 
