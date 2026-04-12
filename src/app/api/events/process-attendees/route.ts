@@ -35,6 +35,7 @@ const IDENTITY_FIELDS = new Set([
   "first_name",
   "last_name",
   "full_name",
+  "address",
 ]);
 
 export async function POST(request: Request) {
@@ -108,17 +109,20 @@ export async function POST(request: Request) {
         }
       }
 
+      // Extract address if mapped
+      const address = columnMap.address
+        ? row[columnMap.address]?.toString().trim() || null
+        : null;
+
       // Upsert into people_identities (private secure database)
+      const identityData: Record<string, unknown> = { email };
+      if (firstName) identityData.first_name = firstName;
+      if (lastName) identityData.last_name = lastName;
+      if (address) identityData.address = address;
+
       const { data: identity } = await serviceClient
         .from("people_identities")
-        .upsert(
-          {
-            email,
-            first_name: firstName || undefined,
-            last_name: lastName || undefined,
-          },
-          { onConflict: "email" }
-        )
+        .upsert(identityData, { onConflict: "email" })
         .select("id")
         .single();
 

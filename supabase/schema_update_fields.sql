@@ -59,7 +59,8 @@ INSERT INTO field_registry (key, label, category, data_type, match_patterns, is_
 ('email', 'Email address', 'identity', 'text', '{e.?mail,email}', false),
 ('first_name', 'First name', 'identity', 'text', '{first.?name,fname,first$}', false),
 ('last_name', 'Last name', 'identity', 'text', '{last.?name,lname,last$,surname}', false),
-('full_name', 'Full name', 'identity', 'text', '{^name$,full.?name,fullname,participant.?name,member.?name}', false);
+('full_name', 'Full name', 'identity', 'text', '{^name$,full.?name,fullname,participant.?name,member.?name}', false),
+('address', 'Address', 'identity', 'text', '{address,street,street.?address,home.?address,mailing.?address}', false);
 
 -- RLS for field_registry (read-only for all authenticated users)
 alter table field_registry enable row level security;

@@ -104,6 +104,7 @@ create table people_identities (
   alternate_email text,
   first_name text,
   last_name text,
+  address text,
   created_at timestamptz not null default now()
 );
 

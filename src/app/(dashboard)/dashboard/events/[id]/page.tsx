@@ -10,14 +10,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { ArrowLeft, Upload, Users, CalendarDays } from "lucide-react";
-import { ComparisonCharts } from "@/components/events/comparison-charts";
+import { EventAttendanceWithFilter } from "@/components/events/event-attendance-with-filter";
+import { EventDemographicsSection } from "@/components/events/event-demographics-section";
 import {
-  getEventBreakdown,
-  getOrgTypeBreakdown,
-  getCommunityTypeBreakdown,
+  getAttendanceComparison,
+  getEventDemographics,
+  getAvailableYears,
 } from "@/lib/event-analytics";
 
 export default async function EventDetailPage({
@@ -40,18 +40,17 @@ export default async function EventDetailPage({
 
   if (!event) notFound();
 
-  // Fetch all three comparison datasets:
-  // 1. This specific event
-  // 2. All events of this type from this org (including this event)
-  // 3. All events of this type across the entire community
-  const [thisEvent, orgEvents, communityEvents] = await Promise.all([
-    getEventBreakdown(supabase, id),
-    getOrgTypeBreakdown(supabase, event.organization_id, event.event_type),
-    getCommunityTypeBreakdown(supabase, event.event_type),
-  ]);
-
   const eventTypeLabel = event.event_type?.replace("_", " ") || "event";
   const orgName = event.organizations?.name || "Your org";
+
+  // Load all data in parallel
+  const [attendance, demographics, availableYears] = await Promise.all([
+    getAttendanceComparison(supabase, id, event.organization_id, event.event_type),
+    getEventDemographics(supabase, id),
+    getAvailableYears(supabase, event.organization_id),
+  ]);
+
+  const hasData = attendance.thisEvent > 0;
 
   return (
     <div>
@@ -99,61 +98,28 @@ export default async function EventDetailPage({
         </Link>
       </div>
 
-      {thisEvent.totalAttendees > 0 ? (
-        <>
-          {/* Summary stats row */}
-          <div className="grid grid-cols-4 gap-4 mb-8">
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-3xl font-bold text-navy">
-                  {thisEvent.totalAttendees}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Event attendees
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-3xl font-bold text-gold">
-                  {orgEvents.totalAttendees}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  All {orgName} {eventTypeLabel} attendees
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-3xl font-bold" style={{ color: "#4a7c6f" }}>
-                  {communityEvents.totalAttendees}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  All community {eventTypeLabel} attendees
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6">
-                <p className="text-3xl font-bold text-navy">
-                  {thisEvent.hasChildrenPct}%
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Have children
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Comparison charts */}
-          <ComparisonCharts
-            thisEvent={thisEvent}
-            orgEvents={orgEvents}
-            communityEvents={communityEvents}
-            eventTypeLabel={eventTypeLabel}
+      {hasData ? (
+        <div className="space-y-10">
+          {/* Section 1: Event Attendance */}
+          <EventAttendanceWithFilter
+            initialAttendance={attendance}
+            eventId={id}
+            organizationId={event.organization_id}
+            eventType={event.event_type}
             orgName={orgName}
+            eventTypeLabel={eventTypeLabel}
+            availableYears={availableYears}
           />
-        </>
+
+          {/* Section 2: Event Demographics */}
+          <div className="space-y-4">
+            <h2 className="text-lg font-semibold tracking-tight">Event Demographics</h2>
+            <EventDemographicsSection
+              fields={demographics}
+              totalAttendees={attendance.thisEvent}
+            />
+          </div>
+        </div>
       ) : (
         <Card className="border-dashed">
           <CardHeader className="text-center py-12">
