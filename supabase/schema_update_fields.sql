@@ -44,7 +44,7 @@ INSERT INTO field_registry (key, label, category, data_type, match_patterns, is_
 ('bnai_mitzvah_date', 'B''nai mitzvah date', 'jewish_identity', 'date', '{b.?nai.?mitzvah,bar.?mitzvah,bat.?mitzvah,b.?mitzvah}', false),
 
 -- Engagement
-('membership_type', 'Membership type', 'engagement', 'text', '{member.?type,membership.?type,membership.?level,member.?level}', false),
+('membership_type', 'Membership type', 'engagement', 'text', '{member.?type,membership.?type,membership.?level,member.?level,membership.?status,member.?status}', false),
 ('membership_start', 'Membership start date', 'engagement', 'date', '{member.?start,membership.?start,join.?date,member.?since}', false),
 ('is_volunteer', 'Volunteer', 'engagement', 'boolean', '{volunteer,volunteers}', false),
 ('is_board_member', 'Board member', 'engagement', 'boolean', '{board.?member,board}', false),

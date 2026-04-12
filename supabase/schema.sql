@@ -150,6 +150,34 @@ create table event_attendees (
 );
 
 -- =============================================================
+-- 7. POPULATION_UPLOADS
+-- Tracks each population/membership data upload
+-- =============================================================
+create table population_uploads (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references organizations(id),
+  created_by uuid not null references profiles(id),
+  name text not null,                -- e.g. "2024 Membership List", "Preschool Families"
+  description text,
+  member_count integer default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- =============================================================
+-- 8. POPULATION_MEMBERS
+-- Junction table: which people are in which population upload
+-- =============================================================
+create table population_members (
+  id uuid primary key default gen_random_uuid(),
+  population_id uuid not null references population_uploads(id) on delete cascade,
+  person_id uuid not null references people_identities(id),
+  raw_data jsonb default '{}',  -- original spreadsheet row data
+  created_at timestamptz not null default now(),
+  unique(population_id, person_id)
+);
+
+-- =============================================================
 -- ROW LEVEL SECURITY
 -- =============================================================
 
@@ -211,12 +239,53 @@ create policy "Users can add attendees to org events" on event_attendees for ins
     )
   );
 
+-- Population uploads: users can see/create uploads for their org
+alter table population_uploads enable row level security;
+create policy "Users can view org populations" on population_uploads for select
+  using (
+    organization_id in (
+      select organization_id from profiles where id = auth.uid()
+    )
+  );
+create policy "Users can create org populations" on population_uploads for insert
+  with check (
+    organization_id in (
+      select organization_id from profiles where id = auth.uid()
+    )
+  );
+create policy "Users can update own populations" on population_uploads for update
+  using (created_by = auth.uid());
+
+-- Population members: users can see/add members for their org's populations
+alter table population_members enable row level security;
+create policy "Users can view org population members" on population_members for select
+  using (
+    population_id in (
+      select p.id from population_uploads p
+      where p.organization_id in (
+        select organization_id from profiles where id = auth.uid()
+      )
+    )
+  );
+create policy "Users can add members to org populations" on population_members for insert
+  with check (
+    population_id in (
+      select p.id from population_uploads p
+      where p.organization_id in (
+        select organization_id from profiles where id = auth.uid()
+      )
+    )
+  );
+
 -- =============================================================
 -- INDEXES
 -- =============================================================
 create index idx_profiles_org on profiles(organization_id);
 create index idx_events_org on events(organization_id);
 create index idx_events_date on events(event_date);
+create index idx_population_uploads_org on population_uploads(organization_id);
+create index idx_population_members_population on population_members(population_id);
+create index idx_population_members_person on population_members(person_id);
 create index idx_event_attendees_event on event_attendees(event_id);
 create index idx_event_attendees_person on event_attendees(person_id);
 create index idx_people_identities_email on people_identities(email);
