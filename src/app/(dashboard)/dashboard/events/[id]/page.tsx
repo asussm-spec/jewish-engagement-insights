@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { createClient as createServiceClient } from "@supabase/supabase-js";
+import { createServiceClient } from "@/lib/supabase/service";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
@@ -45,10 +45,7 @@ export default async function EventDetailPage({
   const orgName = event.organizations?.name || "Your org";
 
   // Service client for cross-org community queries (bypasses RLS)
-  const serviceClient = createServiceClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  );
+  const serviceClient = createServiceClient();
 
   // Load all data in parallel
   const [attendance, demographics, availableYears] = await Promise.all([
