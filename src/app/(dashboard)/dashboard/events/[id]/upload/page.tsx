@@ -78,9 +78,9 @@ const DATA_CLASS_META: Record<DataClass, { label: string; icon: typeof Lock; dot
 const DATA_CLASS_ORDER: DataClass[] = ["pii", "demographic", "event_specific"];
 
 const DATA_CLASS_GROUP_LABELS: Record<DataClass, string> = {
-  pii: "Personal identifiers (anonymized)",
-  demographic: "Comparable demographics",
-  event_specific: "Event-specific",
+  pii: "Personal identifiers",
+  demographic: "Demographic data",
+  event_specific: "Other",
 };
 
 type Step = "upload" | "map" | "confirm" | "done";
@@ -501,31 +501,41 @@ export default function UploadPage() {
 
               const sectionCopy: Record<
                 DataClass,
-                { title: string; description: string; iconBg: string; iconColor: string; headerAccent: string }
+                {
+                  title: string;
+                  description: string;
+                  iconBg: string;
+                  iconColor: string;
+                  containerClass: string;
+                  headerBg: string;
+                }
               > = {
                 pii: {
                   title: "Personal identifiers",
                   description:
-                    "Anonymized before sharing. Used only to match the same person across uploads — never shown in charts, community insights, or to other organizations.",
+                    "Anonymized and stored securely. Used only to match the same person across uploads — never shown in charts, shared with other organizations, or included in community insights.",
                   iconBg: "bg-navy/10",
                   iconColor: "text-navy",
-                  headerAccent: "border-l-4 border-navy",
+                  containerClass: "border-navy/20",
+                  headerBg: "bg-navy/[0.04]",
                 },
                 demographic: {
-                  title: "Comparable demographics",
+                  title: "Demographic data",
                   description:
-                    "Aggregated into charts and insights you can compare across events and organizations.",
+                    "Aggregated into charts and community insights that compare across events and organizations.",
                   iconBg: "bg-emerald-100",
                   iconColor: "text-emerald-700",
-                  headerAccent: "border-l-4 border-emerald-600",
+                  containerClass: "border-emerald-200",
+                  headerBg: "bg-emerald-50/70",
                 },
                 event_specific: {
-                  title: "Event-specific",
+                  title: "Other",
                   description:
-                    "Stored with this event but not charted or compared across events.",
+                    "Saved with this upload, but not analyzed or compared across events.",
                   iconBg: "bg-muted",
                   iconColor: "text-muted-foreground",
-                  headerAccent: "border-l-4 border-muted-foreground/40",
+                  containerClass: "border-border",
+                  headerBg: "bg-muted/40",
                 },
               };
 
@@ -598,32 +608,41 @@ export default function UploadPage() {
               };
 
               return (
-                <div className="space-y-6">
+                <div className="space-y-5">
                   {sections.map((section) => {
                     if (section.headers.length === 0) return null;
                     const copy = sectionCopy[section.dataClass];
                     const meta = DATA_CLASS_META[section.dataClass];
                     const Icon = meta.icon;
                     return (
-                      <section key={section.dataClass}>
-                        <div className={`pl-3 mb-3 ${copy.headerAccent}`}>
-                          <div className="flex items-center gap-2">
+                      <section
+                        key={section.dataClass}
+                        className={`rounded-xl border ${copy.containerClass} overflow-hidden`}
+                      >
+                        <div className={`${copy.headerBg} px-4 py-3 border-b ${copy.containerClass}`}>
+                          <div className="flex items-start gap-3">
                             <div
-                              className={`flex h-7 w-7 items-center justify-center rounded-md ${copy.iconBg}`}
+                              className={`flex h-9 w-9 items-center justify-center rounded-lg ${copy.iconBg} shrink-0`}
                             >
-                              <Icon className={`h-4 w-4 ${copy.iconColor}`} />
+                              <Icon className={`h-5 w-5 ${copy.iconColor}`} />
                             </div>
-                            <h3 className="text-sm font-semibold">{copy.title}</h3>
-                            <Badge variant="outline" className="text-[10px] ml-1">
-                              {section.headers.length}{" "}
-                              {section.headers.length === 1 ? "column" : "columns"}
-                            </Badge>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h3 className="text-base font-semibold leading-tight">
+                                  {copy.title}
+                                </h3>
+                                <Badge variant="secondary" className="text-[10px]">
+                                  {section.headers.length}{" "}
+                                  {section.headers.length === 1 ? "column" : "columns"}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                                {copy.description}
+                              </p>
+                            </div>
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-                            {copy.description}
-                          </p>
                         </div>
-                        <div className="space-y-2">
+                        <div className="p-3 space-y-2 bg-white">
                           {section.headers.map(renderRow)}
                         </div>
                       </section>
@@ -631,15 +650,17 @@ export default function UploadPage() {
                   })}
 
                   {unmappedHeaders.length > 0 && (
-                    <section>
-                      <div className="pl-3 mb-3 border-l-4 border-border">
-                        <h3 className="text-sm font-semibold">Unmapped</h3>
-                        <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+                    <section className="rounded-xl border border-dashed border-border overflow-hidden">
+                      <div className="px-4 py-3 border-b border-dashed border-border bg-muted/20">
+                        <h3 className="text-base font-semibold leading-tight">
+                          Unmapped
+                        </h3>
+                        <p className="text-xs text-muted-foreground mt-1">
                           We couldn&apos;t categorize these columns. Map each one
                           or leave it skipped.
                         </p>
                       </div>
-                      <div className="space-y-2">
+                      <div className="p-3 space-y-2 bg-white">
                         {unmappedHeaders.map(renderRow)}
                       </div>
                     </section>
@@ -740,7 +761,7 @@ export default function UploadPage() {
                   const desc: Record<DataClass, string> = {
                     pii: "Identifies a specific person. Will be anonymized and never charted or shared.",
                     demographic: "A comparable population attribute (age, denomination, membership tier, etc.). Will appear in charts.",
-                    event_specific: "Relevant to this event only (logistics, preferences). Stored but not compared across events.",
+                    event_specific: "Saved with the upload but not analyzed or compared across events.",
                   };
                   const selected = newFieldDataClass === cls;
                   return (
