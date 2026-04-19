@@ -46,11 +46,39 @@ interface FieldDef {
 
 type DataClass = "pii" | "demographic" | "event_specific";
 
-// Classify a registry field into one of three UX-visible data classes.
+// Pattern-based classifiers — run before category-based rules so a field
+// like "phone" registered under the wrong category still classifies correctly.
+const PII_KEY_PATTERNS = [
+  /phone/i, /mobile/i, /\bcell\b/i, /fax/i,
+  /email/i,
+  /\bname\b/i, /first[_-]?name/i, /last[_-]?name/i, /full[_-]?name/i, /surname/i,
+  /address/i, /street/i,
+  /\bssn\b/i, /social[_-]?security/i,
+];
+
+// Operational, behavioral, or free-text fields — saved with the upload
+// but not meaningful as cross-event demographics.
+const OTHER_KEY_PATTERNS = [
+  /registration/i, /\brsvp\b/i, /check[_-]?in/i,
+  /dietary/i, /allergy/i, /allergies/i,
+  /t[_-]?shirt/i, /shirt[_-]?size/i,
+  /transportation/i, /mobility/i, /accessibility/i,
+  /program[_-]?interest/i, /\binterest\b/i, /preference/i,
+  /referral/i, /source/i, /channel/i, /how[_-]?heard/i,
+  /\bnotes?\b/i, /comment/i, /feedback/i,
+  /payment/i, /receipt/i, /confirmation/i,
+];
+
 function dataClassFor(field: FieldDef): DataClass {
+  // PII by key pattern (catches misclassified fields like "phone" in engagement)
+  if (PII_KEY_PATTERNS.some((re) => re.test(field.key))) return "pii";
   if (field.category === "identity") return "pii";
   if (field.category === "family" && /_name$/.test(field.key)) return "pii";
+
+  // Operational/free-text fields classified as "Other"
+  if (OTHER_KEY_PATTERNS.some((re) => re.test(field.key))) return "event_specific";
   if (field.category === "event_specific") return "event_specific";
+
   return "demographic";
 }
 
