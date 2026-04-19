@@ -32,7 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Upload, FileSpreadsheet, Check, Plus, Lock, BarChart3, ClipboardList, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Check, Plus, Lock, BarChart3, ClipboardList } from "lucide-react";
 import Link from "next/link";
 
 interface FieldDef {
@@ -328,10 +328,6 @@ export default function UploadPage() {
       .sort((a, b) => a.label.localeCompare(b.label)),
   })).filter((g) => g.fields.length > 0);
 
-  // Lookup: field key → data class (for rendering the per-row badge).
-  const dataClassByKey = new Map<string, DataClass>(
-    fields.map((f) => [f.key, dataClassFor(f)])
-  );
 
   // Count how many columns are mapped (not skipped)
   const mappedCount = Object.values(mappings).filter(
@@ -485,79 +481,66 @@ export default function UploadPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {/* Data class legend + privacy commitment */}
-            <div className="mb-5 rounded-lg border bg-cream/40 p-4 space-y-3">
-              <div className="flex items-start gap-2">
-                <ShieldCheck className="h-5 w-5 text-navy mt-0.5 shrink-0" />
-                <div className="text-sm">
-                  <p className="font-medium text-navy">
-                    Personal identifiers are anonymized before they&apos;re shared.
-                  </p>
-                  <p className="text-muted-foreground mt-0.5">
-                    Names, emails, phone numbers, and addresses are used only to
-                    match the same person across your uploads. They are never
-                    shown in community insights, shared with other organizations,
-                    or displayed in charts.
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-3 pt-1 text-xs">
-                {DATA_CLASS_ORDER.map((cls) => {
-                  const meta = DATA_CLASS_META[cls];
-                  const Icon = meta.icon;
-                  const copy: Record<DataClass, string> = {
-                    pii: "Anonymized, never charted or shared.",
-                    demographic: "Aggregated into insights comparable across events.",
-                    event_specific: "Stored with the event but not charted or compared.",
-                  };
-                  return (
-                    <div key={cls} className="flex items-start gap-1.5 flex-1 min-w-[180px]">
-                      <Icon className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="font-medium">{DATA_CLASS_GROUP_LABELS[cls]}</p>
-                        <p className="text-muted-foreground">{copy[cls]}</p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            {(() => {
+              // Partition headers into sections by the data class of the field
+              // they're currently mapped to, plus an "unmapped" bucket for skips.
+              const sections = DATA_CLASS_ORDER.map((cls) => ({
+                dataClass: cls,
+                headers: headers.filter((h) => {
+                  const key = mappings[h];
+                  if (!key || key === "skip") return false;
+                  const field = fields.find((f) => f.key === key);
+                  return !!field && dataClassFor(field) === cls;
+                }),
+              }));
+              const unmappedHeaders = headers.filter((h) => {
+                const key = mappings[h];
+                if (!key || key === "skip") return true;
+                return !fields.find((f) => f.key === key);
+              });
 
-            <div className="space-y-3">
-              {headers.map((header) => {
+              const sectionCopy: Record<
+                DataClass,
+                { title: string; description: string; iconBg: string; iconColor: string; headerAccent: string }
+              > = {
+                pii: {
+                  title: "Personal identifiers",
+                  description:
+                    "Anonymized before sharing. Used only to match the same person across uploads — never shown in charts, community insights, or to other organizations.",
+                  iconBg: "bg-navy/10",
+                  iconColor: "text-navy",
+                  headerAccent: "border-l-4 border-navy",
+                },
+                demographic: {
+                  title: "Comparable demographics",
+                  description:
+                    "Aggregated into charts and insights you can compare across events and organizations.",
+                  iconBg: "bg-emerald-100",
+                  iconColor: "text-emerald-700",
+                  headerAccent: "border-l-4 border-emerald-600",
+                },
+                event_specific: {
+                  title: "Event-specific",
+                  description:
+                    "Stored with this event but not charted or compared across events.",
+                  iconBg: "bg-muted",
+                  iconColor: "text-muted-foreground",
+                  headerAccent: "border-l-4 border-muted-foreground/40",
+                },
+              };
+
+              const renderRow = (header: string) => {
                 const currentMapping = mappings[header] || "skip";
-                const matchedField = fields.find(
-                  (f) => f.key === currentMapping
-                );
-                const isAutoMapped =
-                  currentMapping !== "skip" && matchedField;
-                const cls = matchedField ? dataClassByKey.get(matchedField.key) : undefined;
-                const classMeta = cls ? DATA_CLASS_META[cls] : null;
-                const rowTint =
-                  cls === "pii"
-                    ? "bg-navy/[0.03] border-navy/20"
-                    : cls === "demographic"
-                    ? "bg-emerald-50/50 border-emerald-200"
-                    : cls === "event_specific"
-                    ? "bg-muted/40 border-border"
-                    : "bg-white";
+                const matchedField = fields.find((f) => f.key === currentMapping);
+                const isAutoMapped = currentMapping !== "skip" && matchedField;
                 return (
                   <div
                     key={header}
-                    className={`flex items-center gap-4 rounded-lg border p-3 ${rowTint}`}
+                    className="flex items-center gap-4 rounded-lg border bg-white p-3"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium">{header}</p>
-                        {classMeta && (
-                          <Badge
-                            variant="outline"
-                            className={`text-[10px] gap-1 ${classMeta.badgeClass}`}
-                          >
-                            <classMeta.icon className="h-3 w-3" />
-                            {classMeta.label}
-                          </Badge>
-                        )}
                         {isAutoMapped && (
                           <Badge
                             variant="secondary"
@@ -574,9 +557,7 @@ export default function UploadPage() {
                     <div className="w-56">
                       <Select
                         value={currentMapping}
-                        onValueChange={(v) =>
-                          updateMapping(header, v ?? "skip")
-                        }
+                        onValueChange={(v) => updateMapping(header, v ?? "skip")}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -614,8 +595,58 @@ export default function UploadPage() {
                     </div>
                   </div>
                 );
-              })}
-            </div>
+              };
+
+              return (
+                <div className="space-y-6">
+                  {sections.map((section) => {
+                    if (section.headers.length === 0) return null;
+                    const copy = sectionCopy[section.dataClass];
+                    const meta = DATA_CLASS_META[section.dataClass];
+                    const Icon = meta.icon;
+                    return (
+                      <section key={section.dataClass}>
+                        <div className={`pl-3 mb-3 ${copy.headerAccent}`}>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={`flex h-7 w-7 items-center justify-center rounded-md ${copy.iconBg}`}
+                            >
+                              <Icon className={`h-4 w-4 ${copy.iconColor}`} />
+                            </div>
+                            <h3 className="text-sm font-semibold">{copy.title}</h3>
+                            <Badge variant="outline" className="text-[10px] ml-1">
+                              {section.headers.length}{" "}
+                              {section.headers.length === 1 ? "column" : "columns"}
+                            </Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+                            {copy.description}
+                          </p>
+                        </div>
+                        <div className="space-y-2">
+                          {section.headers.map(renderRow)}
+                        </div>
+                      </section>
+                    );
+                  })}
+
+                  {unmappedHeaders.length > 0 && (
+                    <section>
+                      <div className="pl-3 mb-3 border-l-4 border-border">
+                        <h3 className="text-sm font-semibold">Unmapped</h3>
+                        <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+                          We couldn&apos;t categorize these columns. Map each one
+                          or leave it skipped.
+                        </p>
+                      </div>
+                      <div className="space-y-2">
+                        {unmappedHeaders.map(renderRow)}
+                      </div>
+                    </section>
+                  )}
+                </div>
+              );
+            })()}
 
             {!hasEmail && (
               <p className="mt-4 text-sm text-destructive">
