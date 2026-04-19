@@ -32,8 +32,8 @@ const COLORS = [
   "#8e44ad", // dark purple
 ];
 
-// Show up to this many charts by default; the rest go in the picker
-const DEFAULT_CHART_COUNT = 4;
+// Show up to this many charts by default; the rest can be toggled on via pills.
+const DEFAULT_CHART_COUNT = 8;
 
 interface Props {
   fields: DemographicField[];
@@ -48,10 +48,7 @@ export function EventDemographicsSection({ fields, totalAttendees }: Props) {
     return defaultKeys;
   });
 
-  const [showPicker, setShowPicker] = useState(false);
-
   const visibleFields = fields.filter((f) => visibleKeys.has(f.key));
-  const hiddenFields = fields.filter((f) => !visibleKeys.has(f.key));
 
   function toggleField(key: string) {
     setVisibleKeys((prev) => {
@@ -63,6 +60,14 @@ export function EventDemographicsSection({ fields, totalAttendees }: Props) {
       }
       return next;
     });
+  }
+
+  function showAll() {
+    setVisibleKeys(new Set(fields.map((f) => f.key)));
+  }
+
+  function showNone() {
+    setVisibleKeys(new Set());
   }
 
   if (fields.length === 0) {
@@ -78,27 +83,62 @@ export function EventDemographicsSection({ fields, totalAttendees }: Props) {
     );
   }
 
+  // Sort pills: visible first (preserving field order), then hidden.
+  const orderedFields = [
+    ...fields.filter((f) => visibleKeys.has(f.key)),
+    ...fields.filter((f) => !visibleKeys.has(f.key)),
+  ];
+
   return (
     <div className="space-y-4">
-      {/* Field picker toggle */}
-      {fields.length > DEFAULT_CHART_COUNT && (
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-muted-foreground">Showing:</span>
-          {fields.map((field) => (
-            <Badge
-              key={field.key}
-              variant={visibleKeys.has(field.key) ? "default" : "outline"}
-              className="cursor-pointer select-none"
-              onClick={() => toggleField(field.key)}
+      {/* Always-visible field picker */}
+      <div className="rounded-lg border bg-muted/20 p-3">
+        <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+          <p className="text-xs text-muted-foreground">
+            Showing{" "}
+            <span className="font-semibold text-foreground">
+              {visibleFields.length}
+            </span>{" "}
+            of {fields.length} available charts. Click a pill to toggle.
+          </p>
+          <div className="flex items-center gap-3 text-xs">
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-40 disabled:no-underline"
+              onClick={showAll}
+              disabled={visibleFields.length === fields.length}
             >
-              {field.label}
-              <span className="ml-1 text-[10px] opacity-70">
-                {Math.round(field.coverage * 100)}%
-              </span>
-            </Badge>
-          ))}
+              Show all
+            </button>
+            <button
+              type="button"
+              className="text-muted-foreground hover:text-foreground underline underline-offset-2 disabled:opacity-40 disabled:no-underline"
+              onClick={showNone}
+              disabled={visibleFields.length === 0}
+            >
+              Hide all
+            </button>
+          </div>
         </div>
-      )}
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {orderedFields.map((field) => {
+            const selected = visibleKeys.has(field.key);
+            return (
+              <Badge
+                key={field.key}
+                variant={selected ? "default" : "outline"}
+                className="cursor-pointer select-none transition-colors"
+                onClick={() => toggleField(field.key)}
+              >
+                {field.label}
+                <span className="ml-1.5 text-[10px] opacity-70 tabular-nums">
+                  {Math.round(field.coverage * 100)}%
+                </span>
+              </Badge>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Chart grid */}
       <div className="grid gap-6 md:grid-cols-2">
