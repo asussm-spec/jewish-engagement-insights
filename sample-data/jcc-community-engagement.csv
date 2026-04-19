@@ -1,0 +1,31 @@
+first_name,last_name,email,date_of_birth,denomination,attended_jewish_preschool,attended_hebrew_school,attended_day_school,attended_overnight_camp,is_birthright_alum,serves_on_jewish_board,donates_to_federation,synagogue_member,sent_kid_to_jewish_preschool,sent_kid_to_hebrew_school,sent_kid_to_day_school,sent_kid_to_jewish_day_camp,sent_kid_to_overnight_camp,sent_kid_to_jewish_youth_group,sent_kid_on_teen_israel_trip,kid_had_bnai_mitzvah
+Sarah,Cohen,sarah.cohen@example.com,1982-04-12,Reform,yes,yes,no,yes,no,yes,yes,yes,yes,yes,no,yes,yes,yes,no,no
+David,Levy,dlevy@example.com,1975-08-23,Conservative,no,yes,yes,yes,no,no,yes,yes,yes,yes,yes,yes,yes,yes,yes,yes
+Rachel,Goldstein,rachel.g@example.com,1989-01-30,Just Jewish,no,no,no,no,yes,no,no,no,no,no,no,no,no,no,no,no
+Michael,Shapiro,mshapiro@example.com,1968-11-05,Reform,yes,yes,no,yes,no,yes,yes,yes,yes,yes,no,yes,yes,no,no,yes
+Rebecca,Friedman,rfriedman@example.com,1984-06-18,Conservative,yes,yes,no,yes,yes,no,yes,yes,yes,yes,no,yes,yes,no,no,no
+Daniel,Katz,dkatz@example.com,1991-03-22,Reconstructionist,no,yes,no,yes,yes,no,no,no,no,no,no,no,no,no,no,no
+Leah,Rosen,leah.rosen@example.com,1980-09-14,Reform,no,yes,no,yes,no,yes,yes,yes,yes,yes,no,yes,yes,yes,no,yes
+Joshua,Schwartz,josh.s@example.com,1972-12-08,Orthodox,yes,no,yes,yes,no,yes,yes,yes,yes,no,yes,no,yes,yes,yes,yes
+Hannah,Klein,hklein@example.com,1990-07-25,Conservative,yes,yes,no,no,yes,no,no,yes,no,no,no,no,no,no,no,no
+Benjamin,Weiss,bweiss@example.com,1981-02-11,Just Jewish,no,no,no,no,no,no,yes,no,yes,yes,no,yes,no,no,no,no
+Miriam,Stern,mstern@example.com,1971-05-17,Conservative,yes,yes,no,yes,no,yes,yes,yes,yes,yes,no,yes,yes,yes,yes,yes
+Samuel,Berger,sberger@example.com,1993-10-03,Reform,no,yes,no,no,yes,no,no,no,no,no,no,no,no,no,no,no
+Esther,Goldman,esther.g@example.com,1978-08-29,Orthodox,yes,no,yes,yes,no,yes,yes,yes,yes,no,yes,yes,yes,yes,yes,yes
+Aaron,Silverman,asilverman@example.com,1985-04-06,Reform,yes,yes,no,yes,yes,no,yes,yes,yes,yes,no,yes,no,no,no,no
+Naomi,Kaplan,nkaplan@example.com,1988-11-19,Just Jewish,no,no,no,no,no,no,no,no,no,no,no,no,no,no,no,no
+Eli,Horowitz,ehorowitz@example.com,1974-01-24,Conservative,no,yes,no,yes,no,yes,yes,yes,yes,yes,yes,yes,yes,yes,no,yes
+Abigail,Bernstein,abernstein@example.com,1983-06-30,Reform,yes,yes,no,yes,yes,no,yes,yes,yes,yes,no,yes,yes,no,no,yes
+Noah,Feldman,nfeldman@example.com,1992-09-12,Reconstructionist,no,yes,no,yes,yes,no,no,yes,no,no,no,no,no,no,no,no
+Ruth,Gordon,rgordon@example.com,1970-03-05,Conservative,no,yes,no,yes,no,yes,yes,yes,yes,yes,no,yes,yes,yes,yes,yes
+Isaac,Lieberman,ilieberman@example.com,1986-12-16,Reform,yes,yes,no,no,no,no,yes,yes,yes,yes,no,yes,no,no,no,no
+Maya,Greenberg,mgreenberg@example.com,1994-07-28,Just Jewish,no,no,no,no,yes,no,no,no,no,no,no,no,no,no,no,no
+Ethan,Rubin,erubin@example.com,1977-02-09,Conservative,yes,yes,yes,yes,no,yes,yes,yes,yes,yes,yes,yes,yes,yes,yes,yes
+Sophie,Meyer,smeyer@example.com,1982-10-21,Reform,yes,yes,no,yes,no,no,yes,yes,yes,yes,no,yes,yes,no,no,yes
+Jacob,Adler,jadler@example.com,1990-05-14,Just Jewish,no,no,no,no,yes,no,yes,no,no,no,no,no,no,no,no,no
+Emma,Blumenthal,eblumenthal@example.com,1973-08-03,Conservative,yes,yes,no,yes,no,yes,yes,yes,yes,yes,no,yes,yes,yes,no,yes
+Liam,Goldberg,lgoldberg@example.com,1981-11-27,Reform,no,yes,no,yes,yes,no,yes,yes,yes,yes,no,yes,no,no,no,no
+Ava,Hoffman,ahoffman@example.com,1995-04-18,Just Jewish,no,no,no,no,no,no,no,no,no,no,no,no,no,no,no,no
+Oliver,Mendel,omendel@example.com,1969-06-11,Orthodox,yes,no,yes,yes,no,yes,yes,yes,yes,no,yes,yes,yes,yes,yes,yes
+Mia,Pearl,mpearl@example.com,1985-01-02,Reform,yes,yes,no,yes,yes,yes,yes,yes,yes,yes,no,yes,yes,no,no,no
+Alexander,Roth,aroth@example.com,1992-09-25,Conservative,no,yes,no,yes,yes,no,yes,no,no,no,no,no,no,no,no,no

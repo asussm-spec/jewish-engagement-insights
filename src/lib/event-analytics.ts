@@ -356,6 +356,20 @@ export async function getEventDemographics(
     /education/i,
     /occupation/i, /profession/i,
     /income/i,
+    // Jewish engagement biographical facts (self + kids)
+    /jewish[_-]?preschool/i,
+    /hebrew[_-]?school/i,
+    /religious[_-]?school/i,
+    /day[_-]?school/i,
+    /overnight[_-]?camp/i,
+    /\bday[_-]?camp\b/i,
+    /birthright/i,
+    /federation/i,
+    /\bsynagogue\b/i,
+    /bnai[_-]?mitzvah/i, /bar[_-]?mitzvah/i, /bat[_-]?mitzvah/i,
+    /israel[_-]?trip/i,
+    /youth[_-]?group/i,
+    /jewish[_-]?board/i,
   ];
   const stripOrgPrefix = (k: string) => k.replace(/^org:[^:]+:/, "");
   const isDemographic = (k: string) =>
