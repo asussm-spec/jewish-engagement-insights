@@ -127,6 +127,18 @@ export default function UploadPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [processedCount, setProcessedCount] = useState(0);
+  const [processStats, setProcessStats] = useState<{
+    totalProcessed: number;
+    adultsProcessed: number;
+    childrenProcessed: number;
+    newPeople: number;
+    returningPeople: number;
+    ageBucketCount: number;
+    denominationCount: number;
+    zipCodeCount: number;
+    membershipKnown: number;
+    membersCount: number;
+  } | null>(null);
 
   // Field registry from Supabase
   const [fields, setFields] = useState<FieldDef[]>([]);
@@ -389,6 +401,7 @@ export default function UploadPage() {
       }
 
       setProcessedCount(result.processedCount);
+      if (result.stats) setProcessStats(result.stats);
       setStep("done");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
@@ -736,22 +749,115 @@ export default function UploadPage() {
               {processedCount} attendees processed
             </CardTitle>
             <CardDescription>
-              Attendee data has been anonymized and added to the community
-              dataset. View the insights for this event.
+              Attendee data has been anonymized and added to your community
+              dataset.
             </CardDescription>
           </CardHeader>
-          <CardContent className="flex justify-center gap-3 pb-8">
-            <Button
-              variant="outline"
-              onClick={() => router.push("/dashboard/events")}
-            >
-              Back to events
-            </Button>
-            <Button
-              onClick={() => router.push(`/dashboard/events/${eventId}`)}
-            >
-              View event insights
-            </Button>
+          <CardContent className="pb-8">
+            {processStats && (
+              <div className="space-y-4 mb-8">
+                {/* Primary stat tiles */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-lg border bg-white p-4 text-center">
+                    <p className="text-2xl font-semibold text-navy">
+                      {processStats.newPeople}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1 leading-tight">
+                      New to your dataset
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-white p-4 text-center">
+                    <p className="text-2xl font-semibold text-navy">
+                      {processStats.returningPeople}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1 leading-tight">
+                      Returning attendees
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-white p-4 text-center">
+                    <p className="text-2xl font-semibold text-navy">
+                      {processStats.childrenProcessed}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1 leading-tight">
+                      Children represented
+                    </p>
+                  </div>
+                </div>
+
+                {/* Diversity callouts */}
+                {(processStats.ageBucketCount > 0 ||
+                  processStats.denominationCount > 0 ||
+                  processStats.zipCodeCount > 0 ||
+                  processStats.membershipKnown > 0) && (
+                  <div className="rounded-lg border bg-cream/40 p-4">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                      Demographic reach
+                    </p>
+                    <ul className="space-y-1.5 text-sm">
+                      {processStats.ageBucketCount > 0 && (
+                        <li className="flex items-baseline gap-2">
+                          <span className="font-semibold text-navy">
+                            {processStats.ageBucketCount}
+                          </span>
+                          <span className="text-muted-foreground">
+                            age {processStats.ageBucketCount === 1 ? "bucket" : "buckets"} represented
+                          </span>
+                        </li>
+                      )}
+                      {processStats.denominationCount > 0 && (
+                        <li className="flex items-baseline gap-2">
+                          <span className="font-semibold text-navy">
+                            {processStats.denominationCount}
+                          </span>
+                          <span className="text-muted-foreground">
+                            {processStats.denominationCount === 1 ? "denomination" : "denominations"} represented
+                          </span>
+                        </li>
+                      )}
+                      {processStats.zipCodeCount > 0 && (
+                        <li className="flex items-baseline gap-2">
+                          <span className="font-semibold text-navy">
+                            {processStats.zipCodeCount}
+                          </span>
+                          <span className="text-muted-foreground">
+                            unique ZIP {processStats.zipCodeCount === 1 ? "code" : "codes"}
+                          </span>
+                        </li>
+                      )}
+                      {processStats.membershipKnown > 0 && (
+                        <li className="flex items-baseline gap-2">
+                          <span className="font-semibold text-navy">
+                            {Math.round(
+                              (processStats.membersCount /
+                                processStats.membershipKnown) *
+                                100
+                            )}
+                            %
+                          </span>
+                          <span className="text-muted-foreground">
+                            members (of {processStats.membershipKnown} with status)
+                          </span>
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="flex justify-center gap-3">
+              <Button
+                variant="outline"
+                onClick={() => router.push("/dashboard/events")}
+              >
+                Back to events
+              </Button>
+              <Button
+                onClick={() => router.push(`/dashboard/events/${eventId}`)}
+              >
+                View event insights
+              </Button>
+            </div>
           </CardContent>
         </Card>
       )}

@@ -87,11 +87,42 @@ export async function POST(request: Request) {
       );
     }
 
+    // Pre-fetch existing identities so we can tell new from returning attendees.
+    const normalizedEmails: string[] = [];
+    for (const row of rows as Record<string, string>[]) {
+      const e = row[columnMap.email]?.toString().trim().toLowerCase();
+      if (e && e.includes("@")) normalizedEmails.push(e);
+    }
+    const { data: existingIdentities } = await serviceClient
+      .from("people_identities")
+      .select("email")
+      .in("email", normalizedEmails);
+    const existingEmailSet = new Set(
+      (existingIdentities || []).map((i) => i.email as string)
+    );
+
     let processedCount = 0;
+    let newPeople = 0;
+    let returningPeople = 0;
+    let childrenProcessed = 0;
+    const ageBucketsSeen = new Set<string>();
+    const denominationsSeen = new Set<string>();
+    const zipCodesSeen = new Set<string>();
+    let membershipKnown = 0;
+    let membersCount = 0;
 
     for (const row of rows) {
       const email = row[columnMap.email]?.toString().trim().toLowerCase();
       if (!email || !email.includes("@")) continue;
+
+      // Track new vs returning before we upsert.
+      const wasExisting = existingEmailSet.has(email);
+      if (wasExisting) {
+        returningPeople++;
+      } else {
+        newPeople++;
+        existingEmailSet.add(email); // avoid double-counting duplicate rows
+      }
 
       // Build names
       let firstName = columnMap.first_name
@@ -190,6 +221,20 @@ export async function POST(request: Request) {
         }
       }
 
+      // Collect diversity stats for the done screen.
+      if (profileUpdate.age_bucket) ageBucketsSeen.add(profileUpdate.age_bucket as string);
+      if (profileUpdate.denomination) denominationsSeen.add(profileUpdate.denomination as string);
+      const zipRaw = attributes.zip_code || attributes.zip || attributes.postal_code;
+      if (zipRaw && typeof zipRaw === "string") zipCodesSeen.add(zipRaw.slice(0, 5));
+      const membershipRaw = attributes.membership_status || attributes.is_member;
+      if (typeof membershipRaw === "string") {
+        const normalized = membershipRaw.toLowerCase().trim();
+        if (normalized) {
+          membershipKnown++;
+          if (["yes", "true", "member", "active", "1"].includes(normalized)) membersCount++;
+        }
+      }
+
       // Merge attributes with any existing ones
       if (Object.keys(attributes).length > 0) {
         // Fetch existing attributes to merge
@@ -270,9 +315,12 @@ export async function POST(request: Request) {
               (Date.now() - birthDate.getTime()) /
                 (365.25 * 24 * 60 * 60 * 1000)
             );
-            childProfile.age_bucket = computeAgeBucket(age);
+            const bucket = computeAgeBucket(age);
+            childProfile.age_bucket = bucket;
+            ageBucketsSeen.add(bucket);
           }
         }
+        childrenProcessed++;
 
         await serviceClient
           .from("people_profiles")
@@ -298,7 +346,21 @@ export async function POST(request: Request) {
       .update({ attendee_count: processedCount })
       .eq("id", eventId);
 
-    return NextResponse.json({ processedCount });
+    return NextResponse.json({
+      processedCount,
+      stats: {
+        totalProcessed: processedCount,
+        adultsProcessed: processedCount - childrenProcessed,
+        childrenProcessed,
+        newPeople,
+        returningPeople,
+        ageBucketCount: ageBucketsSeen.size,
+        denominationCount: denominationsSeen.size,
+        zipCodeCount: zipCodesSeen.size,
+        membershipKnown,
+        membersCount,
+      },
+    });
   } catch (err) {
     console.error("Process attendees error:", err);
     return NextResponse.json(
