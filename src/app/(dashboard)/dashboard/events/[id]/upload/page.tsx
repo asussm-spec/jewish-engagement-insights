@@ -32,7 +32,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Upload, FileSpreadsheet, Check, Plus } from "lucide-react";
+import { ArrowLeft, Upload, FileSpreadsheet, Check, Plus, Lock, BarChart3, ClipboardList, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 
 interface FieldDef {
@@ -44,23 +44,44 @@ interface FieldDef {
   match_patterns: string[];
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  identity: "Identity",
-  demographics: "Demographics",
-  family: "Family",
-  jewish_identity: "Jewish Identity",
-  engagement: "Engagement",
-  geographic: "Geographic",
+type DataClass = "pii" | "demographic" | "event_specific";
+
+// Classify a registry field into one of three UX-visible data classes.
+function dataClassFor(field: FieldDef): DataClass {
+  if (field.category === "identity") return "pii";
+  if (field.category === "family" && /_name$/.test(field.key)) return "pii";
+  if (field.category === "event_specific") return "event_specific";
+  return "demographic";
+}
+
+const DATA_CLASS_META: Record<DataClass, { label: string; icon: typeof Lock; dotClass: string; badgeClass: string }> = {
+  pii: {
+    label: "PII — will be anonymized",
+    icon: Lock,
+    dotClass: "bg-navy",
+    badgeClass: "bg-navy/10 text-navy border-navy/20",
+  },
+  demographic: {
+    label: "Comparable demographic",
+    icon: BarChart3,
+    dotClass: "bg-emerald-600",
+    badgeClass: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  },
+  event_specific: {
+    label: "Event-specific (not compared)",
+    icon: ClipboardList,
+    dotClass: "bg-muted-foreground",
+    badgeClass: "bg-muted text-muted-foreground border-border",
+  },
 };
 
-const CATEGORY_ORDER = [
-  "identity",
-  "demographics",
-  "family",
-  "jewish_identity",
-  "engagement",
-  "geographic",
-];
+const DATA_CLASS_ORDER: DataClass[] = ["pii", "demographic", "event_specific"];
+
+const DATA_CLASS_GROUP_LABELS: Record<DataClass, string> = {
+  pii: "Personal identifiers (anonymized)",
+  demographic: "Comparable demographics",
+  event_specific: "Event-specific",
+};
 
 type Step = "upload" | "map" | "confirm" | "done";
 
@@ -87,7 +108,7 @@ export default function UploadPage() {
   const [showNewField, setShowNewField] = useState(false);
   const [newFieldColumn, setNewFieldColumn] = useState("");
   const [newFieldLabel, setNewFieldLabel] = useState("");
-  const [newFieldCategory, setNewFieldCategory] = useState("demographics");
+  const [newFieldDataClass, setNewFieldDataClass] = useState<DataClass>("demographic");
   const [newFieldType, setNewFieldType] = useState("text");
 
   // Load field registry on mount
@@ -264,12 +285,20 @@ export default function UploadPage() {
       .replace(/[^a-z0-9]+/g, "_")
       .replace(/^_|_$/g, "");
 
+    // Map the UX data class to a registry category value.
+    const category =
+      newFieldDataClass === "pii"
+        ? "identity"
+        : newFieldDataClass === "event_specific"
+        ? "event_specific"
+        : "demographics";
+
     const { data, error: insertError } = await supabase
       .from("field_registry")
       .insert({
         key,
         label: newFieldLabel,
-        category: newFieldCategory,
+        category,
         data_type: newFieldType,
         match_patterns: [key.replace(/_/g, ".?")],
       })
@@ -290,12 +319,19 @@ export default function UploadPage() {
 
   const hasEmail = Object.values(mappings).includes("email");
 
-  // Group fields by category for the select dropdown
-  const fieldsByCategory = CATEGORY_ORDER.map((cat) => ({
-    category: cat,
-    label: CATEGORY_LABELS[cat] || cat,
-    fields: fields.filter((f) => f.category === cat),
+  // Group fields by data class (3-tier UX grouping) for the select dropdown.
+  const fieldsByDataClass = DATA_CLASS_ORDER.map((cls) => ({
+    dataClass: cls,
+    label: DATA_CLASS_GROUP_LABELS[cls],
+    fields: fields
+      .filter((f) => dataClassFor(f) === cls)
+      .sort((a, b) => a.label.localeCompare(b.label)),
   })).filter((g) => g.fields.length > 0);
+
+  // Lookup: field key → data class (for rendering the per-row badge).
+  const dataClassByKey = new Map<string, DataClass>(
+    fields.map((f) => [f.key, dataClassFor(f)])
+  );
 
   // Count how many columns are mapped (not skipped)
   const mappedCount = Object.values(mappings).filter(
@@ -449,6 +485,44 @@ export default function UploadPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {/* Data class legend + privacy commitment */}
+            <div className="mb-5 rounded-lg border bg-cream/40 p-4 space-y-3">
+              <div className="flex items-start gap-2">
+                <ShieldCheck className="h-5 w-5 text-navy mt-0.5 shrink-0" />
+                <div className="text-sm">
+                  <p className="font-medium text-navy">
+                    Personal identifiers are anonymized before they&apos;re shared.
+                  </p>
+                  <p className="text-muted-foreground mt-0.5">
+                    Names, emails, phone numbers, and addresses are used only to
+                    match the same person across your uploads. They are never
+                    shown in community insights, shared with other organizations,
+                    or displayed in charts.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-3 pt-1 text-xs">
+                {DATA_CLASS_ORDER.map((cls) => {
+                  const meta = DATA_CLASS_META[cls];
+                  const Icon = meta.icon;
+                  const copy: Record<DataClass, string> = {
+                    pii: "Anonymized, never charted or shared.",
+                    demographic: "Aggregated into insights comparable across events.",
+                    event_specific: "Stored with the event but not charted or compared.",
+                  };
+                  return (
+                    <div key={cls} className="flex items-start gap-1.5 flex-1 min-w-[180px]">
+                      <Icon className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="font-medium">{DATA_CLASS_GROUP_LABELS[cls]}</p>
+                        <p className="text-muted-foreground">{copy[cls]}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <div className="space-y-3">
               {headers.map((header) => {
                 const currentMapping = mappings[header] || "skip";
@@ -457,18 +531,33 @@ export default function UploadPage() {
                 );
                 const isAutoMapped =
                   currentMapping !== "skip" && matchedField;
+                const cls = matchedField ? dataClassByKey.get(matchedField.key) : undefined;
+                const classMeta = cls ? DATA_CLASS_META[cls] : null;
+                const rowTint =
+                  cls === "pii"
+                    ? "bg-navy/[0.03] border-navy/20"
+                    : cls === "demographic"
+                    ? "bg-emerald-50/50 border-emerald-200"
+                    : cls === "event_specific"
+                    ? "bg-muted/40 border-border"
+                    : "bg-white";
                 return (
                   <div
                     key={header}
-                    className={`flex items-center gap-4 rounded-lg border p-3 ${
-                      isAutoMapped
-                        ? "bg-green-50/50 border-green-200"
-                        : "bg-white"
-                    }`}
+                    className={`flex items-center gap-4 rounded-lg border p-3 ${rowTint}`}
                   >
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium">{header}</p>
+                        {classMeta && (
+                          <Badge
+                            variant="outline"
+                            className={`text-[10px] gap-1 ${classMeta.badgeClass}`}
+                          >
+                            <classMeta.icon className="h-3 w-3" />
+                            {classMeta.label}
+                          </Badge>
+                        )}
                         {isAutoMapped && (
                           <Badge
                             variant="secondary"
@@ -496,9 +585,14 @@ export default function UploadPage() {
                           <SelectItem value="skip">
                             — Skip this column —
                           </SelectItem>
-                          {fieldsByCategory.map((group) => (
-                            <SelectGroup key={group.category}>
-                              <SelectLabel>{group.label}</SelectLabel>
+                          {fieldsByDataClass.map((group) => (
+                            <SelectGroup key={group.dataClass}>
+                              <SelectLabel className="flex items-center gap-1.5">
+                                <span
+                                  className={`inline-block h-2 w-2 rounded-full ${DATA_CLASS_META[group.dataClass].dotClass}`}
+                                />
+                                {group.label}
+                              </SelectLabel>
                               {group.fields.map((f) => (
                                 <SelectItem key={f.key} value={f.key}>
                                   {f.label}
@@ -606,42 +700,55 @@ export default function UploadPage() {
                 placeholder="e.g. Preschool enrollment"
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select
-                  value={newFieldCategory}
-                  onValueChange={(v) => setNewFieldCategory(v ?? "demographics")}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CATEGORY_ORDER.map((cat) => (
-                      <SelectItem key={cat} value={cat}>
-                        {CATEGORY_LABELS[cat]}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="space-y-2">
+              <Label>What kind of data is this?</Label>
+              <div className="grid gap-2">
+                {DATA_CLASS_ORDER.map((cls) => {
+                  const meta = DATA_CLASS_META[cls];
+                  const Icon = meta.icon;
+                  const desc: Record<DataClass, string> = {
+                    pii: "Identifies a specific person. Will be anonymized and never charted or shared.",
+                    demographic: "A comparable population attribute (age, denomination, membership tier, etc.). Will appear in charts.",
+                    event_specific: "Relevant to this event only (logistics, preferences). Stored but not compared across events.",
+                  };
+                  const selected = newFieldDataClass === cls;
+                  return (
+                    <button
+                      type="button"
+                      key={cls}
+                      onClick={() => setNewFieldDataClass(cls)}
+                      className={`text-left rounded-lg border p-3 transition-colors ${
+                        selected
+                          ? "border-navy bg-navy/5"
+                          : "border-border hover:border-muted-foreground/40"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 text-sm font-medium">
+                        <Icon className="h-4 w-4" />
+                        {DATA_CLASS_GROUP_LABELS[cls]}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">{desc[cls]}</p>
+                    </button>
+                  );
+                })}
               </div>
-              <div className="space-y-2">
-                <Label>Data type</Label>
-                <Select
-                  value={newFieldType}
-                  onValueChange={(v) => setNewFieldType(v ?? "text")}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="text">Text</SelectItem>
-                    <SelectItem value="number">Number</SelectItem>
-                    <SelectItem value="date">Date</SelectItem>
-                    <SelectItem value="boolean">Yes / No</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Data type</Label>
+              <Select
+                value={newFieldType}
+                onValueChange={(v) => setNewFieldType(v ?? "text")}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text">Text</SelectItem>
+                  <SelectItem value="number">Number</SelectItem>
+                  <SelectItem value="date">Date</SelectItem>
+                  <SelectItem value="boolean">Yes / No</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex justify-end gap-3 pt-2">
               <Button

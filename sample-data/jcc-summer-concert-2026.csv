@@ -1,0 +1,51 @@
+first_name,last_name,email,phone_number,date_of_birth,gender,denomination,membership_tier,has_children,household_size,zip_code,life_stage,registration_channel,dietary_notes,program_interests,rsvp_source,t_shirt_size,check_in_time,referral_source
+Sarah,Cohen,sarah.cohen@example.com,(617) 555-0101,1985-04-12,Female,Reform,Family,yes,4,02445,Parents of young kids,Online RSVP,Vegetarian,Arts & Culture,Email blast,M,7:05 PM,Friend
+David,Levy,dlevy@example.com,(617) 555-0102,1979-08-23,Male,Conservative,Family,yes,5,02446,Parents of young kids,Online RSVP,Kosher,Sports,Email blast,L,7:02 PM,Social media
+Rachel,Goldstein,rachel.g@example.com,(617) 555-0103,1992-01-30,Female,Just Jewish,Young Adult,no,1,02115,Young adult,Walk-in,None,Music,Word of mouth,S,7:15 PM,Friend
+Michael,Shapiro,mshapiro@example.com,(617) 555-0104,1972-11-05,Male,Reform,Family,yes,4,02467,Parents of teens,Online RSVP,Nut allergy,Arts & Culture,Newsletter,XL,6:58 PM,Email
+Rebecca,Friedman,rfriedman@example.com,(617) 555-0105,1988-06-18,Female,Conservative,Family,yes,3,02445,Parents of young kids,At the door,Gluten-free,Sports,Newsletter,M,7:20 PM,Newsletter
+Daniel,Katz,dkatz@example.com,(617) 555-0106,1995-03-22,Male,Reconstructionist,Young Adult,no,2,02115,Young adult,Phone,None,Music,Instagram,L,7:10 PM,Instagram
+Leah,Rosen,leah.rosen@example.com,(617) 555-0107,1982-09-14,Female,Reform,Family,yes,4,02446,Parents of young kids,Online RSVP,Vegan,Arts & Culture,Email blast,S,7:00 PM,Friend
+Joshua,Schwartz,josh.s@example.com,(617) 555-0108,1976-12-08,Male,Orthodox,Family,yes,6,02467,Parents of teens,Online RSVP,Kosher,Torah study,Email blast,XL,6:55 PM,Community board
+Hannah,Klein,hklein@example.com,(617) 555-0109,1990-07-25,Female,Conservative,Individual,no,2,02115,Young adult,Walk-in,Vegetarian,Music,Friend,M,7:25 PM,Friend
+Benjamin,Weiss,bweiss@example.com,(617) 555-0110,1983-02-11,Male,Just Jewish,Family,yes,4,02446,Parents of young kids,Online RSVP,None,Sports,Newsletter,L,7:08 PM,Newsletter
+Miriam,Stern,mstern@example.com,(617) 555-0111,1975-05-17,Female,Conservative,Family,yes,5,02467,Parents of teens,Online RSVP,Gluten-free,Arts & Culture,Email blast,M,7:03 PM,Email
+Samuel,Berger,sberger@example.com,(617) 555-0112,1996-10-03,Male,Reform,Young Adult,no,1,02115,Young adult,Walk-in,None,Music,Instagram,L,7:30 PM,Instagram
+Esther,Goldman,esther.g@example.com,(617) 555-0113,1981-08-29,Female,Orthodox,Family,yes,5,02445,Parents of young kids,Online RSVP,Kosher,Torah study,Community board,S,7:01 PM,Community board
+Aaron,Silverman,asilverman@example.com,(617) 555-0114,1987-04-06,Male,Reform,Family,yes,3,02446,Parents of young kids,Online RSVP,Nut allergy,Arts & Culture,Email blast,L,7:12 PM,Friend
+Naomi,Kaplan,nkaplan@example.com,(617) 555-0115,1993-11-19,Female,Just Jewish,Young Adult,no,2,02115,Young adult,Phone,Vegan,Music,Friend,M,7:18 PM,Friend
+Eli,Horowitz,ehorowitz@example.com,(617) 555-0116,1978-01-24,Male,Conservative,Family,yes,4,02467,Parents of teens,Online RSVP,None,Sports,Newsletter,XL,6:59 PM,Newsletter
+Abigail,Bernstein,abernstein@example.com,(617) 555-0117,1986-06-30,Female,Reform,Family,yes,4,02445,Parents of young kids,Online RSVP,Vegetarian,Arts & Culture,Email blast,M,7:07 PM,Email
+Noah,Feldman,nfeldman@example.com,(617) 555-0118,1994-09-12,Male,Reconstructionist,Young Adult,no,1,02115,Young adult,Walk-in,None,Music,Instagram,L,7:22 PM,Instagram
+Ruth,Gordon,rgordon@example.com,(617) 555-0119,1974-03-05,Female,Conservative,Family,yes,5,02446,Parents of teens,Online RSVP,Gluten-free,Arts & Culture,Email blast,S,7:04 PM,Newsletter
+Isaac,Lieberman,ilieberman@example.com,(617) 555-0120,1989-12-16,Male,Reform,Family,yes,3,02467,Parents of young kids,Online RSVP,None,Sports,Newsletter,L,7:09 PM,Friend
+Maya,Greenberg,mgreenberg@example.com,(617) 555-0121,1997-07-28,Female,Just Jewish,Young Adult,no,1,02115,Young adult,Walk-in,Vegan,Music,Friend,M,7:27 PM,Instagram
+Ethan,Rubin,erubin@example.com,(617) 555-0122,1980-02-09,Male,Conservative,Family,yes,4,02445,Parents of young kids,Online RSVP,Kosher,Torah study,Community board,XL,7:00 PM,Community board
+Sophie,Meyer,smeyer@example.com,(617) 555-0123,1985-10-21,Female,Reform,Family,yes,4,02446,Parents of young kids,Online RSVP,Vegetarian,Arts & Culture,Email blast,M,7:06 PM,Email
+Jacob,Adler,jadler@example.com,(617) 555-0124,1991-05-14,Male,Just Jewish,Young Adult,no,2,02115,Young adult,Phone,None,Music,Instagram,L,7:14 PM,Instagram
+Emma,Blumenthal,eblumenthal@example.com,(617) 555-0125,1977-08-03,Female,Conservative,Family,yes,5,02467,Parents of teens,Online RSVP,Nut allergy,Arts & Culture,Email blast,S,6:57 PM,Newsletter
+Liam,Goldberg,lgoldberg@example.com,(617) 555-0126,1984-11-27,Male,Reform,Family,yes,4,02445,Parents of young kids,Online RSVP,None,Sports,Newsletter,L,7:11 PM,Friend
+Ava,Hoffman,ahoffman@example.com,(617) 555-0127,1998-04-18,Female,Just Jewish,Young Adult,no,1,02115,Young adult,Walk-in,Vegan,Music,Friend,M,7:29 PM,Friend
+Oliver,Mendel,omendel@example.com,(617) 555-0128,1973-06-11,Male,Orthodox,Family,yes,6,02446,Parents of teens,Online RSVP,Kosher,Torah study,Community board,XL,6:56 PM,Community board
+Mia,Pearl,mpearl@example.com,(617) 555-0129,1988-01-02,Female,Reform,Family,yes,3,02467,Parents of young kids,Online RSVP,Gluten-free,Arts & Culture,Email blast,M,7:13 PM,Email
+Alexander,Roth,aroth@example.com,(617) 555-0130,1995-09-25,Male,Conservative,Young Adult,no,1,02115,Young adult,Phone,None,Music,Instagram,L,7:17 PM,Instagram
+Lily,Sterling,lsterling@example.com,(617) 555-0131,1981-03-08,Female,Reform,Family,yes,4,02445,Parents of young kids,Online RSVP,Vegetarian,Arts & Culture,Newsletter,S,7:05 PM,Newsletter
+Nathan,Abrams,nabrams@example.com,(617) 555-0132,1979-07-15,Male,Conservative,Family,yes,5,02446,Parents of teens,Online RSVP,None,Sports,Email blast,L,7:02 PM,Email
+Zoe,Becker,zbecker@example.com,(617) 555-0133,1992-12-20,Female,Just Jewish,Young Adult,no,2,02115,Young adult,Walk-in,Nut allergy,Music,Friend,M,7:24 PM,Friend
+Adam,Diamond,adiamond@example.com,(617) 555-0134,1986-05-01,Male,Reform,Family,yes,3,02467,Parents of young kids,Online RSVP,None,Arts & Culture,Newsletter,L,7:10 PM,Newsletter
+Chloe,Eisenberg,ceisenberg@example.com,(617) 555-0135,1990-10-10,Female,Conservative,Family,yes,4,02445,Parents of young kids,Online RSVP,Kosher,Torah study,Community board,M,7:08 PM,Community board
+Jonathan,Fine,jfine@example.com,(617) 555-0136,1983-04-22,Male,Reconstructionist,Family,yes,4,02446,Parents of young kids,Online RSVP,Vegan,Arts & Culture,Email blast,XL,7:01 PM,Friend
+Emily,Greene,egreene@example.com,(617) 555-0137,1994-08-05,Female,Just Jewish,Young Adult,no,1,02115,Young adult,Phone,None,Music,Instagram,S,7:19 PM,Instagram
+Matthew,Hyman,mhyman@example.com,(617) 555-0138,1978-11-13,Male,Conservative,Family,yes,5,02467,Parents of teens,Online RSVP,Gluten-free,Sports,Newsletter,L,6:58 PM,Newsletter
+Noa,Jaffe,njaffe@example.com,(617) 555-0139,1987-02-26,Female,Reform,Family,yes,4,02445,Parents of young kids,Online RSVP,Vegetarian,Arts & Culture,Email blast,M,7:06 PM,Email
+Gabriel,Kramer,gkramer@example.com,(617) 555-0140,1996-06-07,Male,Just Jewish,Young Adult,no,2,02115,Young adult,Walk-in,None,Music,Friend,L,7:21 PM,Friend
+Talia,Landau,tlandau@example.com,(617) 555-0141,1982-09-19,Female,Conservative,Family,yes,4,02446,Parents of young kids,Online RSVP,Kosher,Torah study,Community board,S,7:04 PM,Community board
+Lucas,Margolis,lmargolis@example.com,(617) 555-0142,1975-12-02,Male,Orthodox,Family,yes,6,02467,Parents of teens,Online RSVP,Kosher,Arts & Culture,Community board,XL,6:55 PM,Community board
+Ariel,Nathanson,anathanson@example.com,(617) 555-0143,1989-03-14,Female,Reform,Family,yes,3,02445,Parents of young kids,Online RSVP,Nut allergy,Sports,Newsletter,M,7:11 PM,Newsletter
+Simon,Oberman,soberman@example.com,(617) 555-0144,1984-07-27,Male,Conservative,Family,yes,4,02446,Parents of young kids,Online RSVP,None,Arts & Culture,Email blast,L,7:07 PM,Email
+Shira,Perlman,sperlman@example.com,(617) 555-0145,1993-01-09,Female,Just Jewish,Young Adult,no,1,02115,Young adult,Walk-in,Vegan,Music,Instagram,M,7:26 PM,Instagram
+Max,Raphael,mraphael@example.com,(617) 555-0146,1977-04-21,Male,Reform,Family,yes,5,02467,Parents of teens,Online RSVP,Gluten-free,Sports,Newsletter,XL,6:59 PM,Newsletter
+Dina,Seltzer,dseltzer@example.com,(617) 555-0147,1991-10-04,Female,Conservative,Family,yes,3,02445,Parents of young kids,Online RSVP,None,Arts & Culture,Email blast,S,7:12 PM,Friend
+Leo,Tabachnick,ltabachnick@example.com,(617) 555-0148,1985-08-17,Male,Reconstructionist,Family,yes,4,02446,Parents of young kids,Online RSVP,Vegetarian,Arts & Culture,Newsletter,L,7:03 PM,Newsletter
+Yael,Ullmann,yullmann@example.com,(617) 555-0149,1997-12-30,Female,Just Jewish,Young Adult,no,2,02115,Young adult,Phone,None,Music,Friend,M,7:23 PM,Friend
+Asher,Verona,averona@example.com,(617) 555-0150,1980-05-12,Male,Conservative,Family,yes,4,02467,Parents of young kids,Online RSVP,Nut allergy,Torah study,Community board,XL,7:09 PM,Community board
