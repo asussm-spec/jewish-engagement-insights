@@ -1,24 +1,21 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+  PageHead,
+  Panel,
+  Chip,
+  DsButton,
+} from "@/components/layout/page-primitives";
 import { Plus, CalendarDays } from "lucide-react";
+
+const typeToneMap: Record<string, "ochre" | "default" | "moss"> = {
+  shabbat: "ochre",
+  education: "default",
+  social: "moss",
+  holiday: "ochre",
+  life_cycle: "default",
+};
 
 export default async function EventsPage() {
   const supabase = await createClient();
@@ -43,82 +40,180 @@ export default async function EventsPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Events</h1>
-          <p className="mt-1 text-muted-foreground">
-            View and manage your organization&apos;s events
-          </p>
-        </div>
-        <Link
-          href="/dashboard/events/new"
-          className={cn(buttonVariants())}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Log new event
-        </Link>
-      </div>
+      <PageHead
+        breadcrumb={[{ label: "Workspace" }, { label: "Events" }]}
+        title="Events"
+        subtitle="Every event is a comparison against itself and against peers."
+        actions={
+          <DsButton href="/dashboard/events/new" variant="primary" size="sm">
+            <Plus className="h-3.5 w-3.5" />
+            Log new event
+          </DsButton>
+        }
+      />
 
       {!events || events.length === 0 ? (
-        <Card className="border-dashed">
-          <CardHeader className="text-center py-12">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-navy/5">
-              <CalendarDays className="h-6 w-6 text-navy" />
+        <Panel>
+          <div
+            className="text-center"
+            style={{
+              padding: "48px 40px",
+              borderStyle: "dashed",
+            }}
+          >
+            <div
+              className="mx-auto mb-4 flex h-12 w-12 items-center justify-center"
+              style={{
+                background: "var(--paper-100)",
+                borderRadius: 10,
+              }}
+            >
+              <CalendarDays
+                className="h-5 w-5"
+                style={{ color: "var(--ink-600)" }}
+              />
             </div>
-            <CardTitle className="text-lg">No events yet</CardTitle>
-            <CardDescription>
+            <div
+              className="font-serif"
+              style={{
+                fontWeight: 500,
+                fontSize: 20,
+                color: "var(--ink-800)",
+                letterSpacing: "-0.01em",
+                marginBottom: 6,
+              }}
+            >
+              No events yet.
+            </div>
+            <p
+              style={{
+                fontSize: 14,
+                color: "var(--stone-500)",
+                maxWidth: 400,
+                margin: "0 auto",
+                lineHeight: 1.55,
+              }}
+            >
               Log your first event to start getting insights.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+            </p>
+          </div>
+        </Panel>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Event name</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead className="text-right">Attendees</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {events.map((event) => (
-                <TableRow key={event.id}>
-                  <TableCell>
-                    <Link
-                      href={`/dashboard/events/${event.id}`}
-                      className="font-medium hover:underline"
+        <Panel>
+          <table className="w-full" style={{ borderCollapse: "collapse", fontSize: 13 }}>
+            <thead>
+              <tr>
+                <Th>Event</Th>
+                <Th>Type</Th>
+                <Th>Date</Th>
+                <Th className="text-right">Attendees</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {events.map((event) => {
+                const tone = typeToneMap[event.event_type ?? ""] ?? "default";
+                return (
+                  <tr
+                    key={event.id}
+                    style={{
+                      borderBottom: "1px solid var(--ds-border)",
+                    }}
+                    className="hover:bg-[color:var(--paper-100)] transition-colors"
+                  >
+                    <Td>
+                      <Link
+                        href={`/dashboard/events/${event.id}`}
+                        className="no-underline"
+                        style={{ color: "var(--ink-800)", fontWeight: 500 }}
+                      >
+                        {event.name}
+                      </Link>
+                      {event.short_description && (
+                        <p
+                          className="truncate max-w-sm"
+                          style={{
+                            fontSize: 12,
+                            color: "var(--ds-fg-muted)",
+                            marginTop: 2,
+                          }}
+                        >
+                          {event.short_description}
+                        </p>
+                      )}
+                    </Td>
+                    <Td>
+                      {event.event_type && (
+                        <Chip tone={tone}>
+                          <span className="capitalize">
+                            {event.event_type.replace("_", " ")}
+                          </span>
+                        </Chip>
+                      )}
+                    </Td>
+                    <Td style={{ color: "var(--ds-fg-muted)" }}>
+                      {new Date(event.event_date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}
+                    </Td>
+                    <Td
+                      style={{
+                        textAlign: "right",
+                        fontVariantNumeric: "tabular-nums",
+                      }}
                     >
-                      {event.name}
-                    </Link>
-                    {event.short_description && (
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-xs">
-                        {event.short_description}
-                      </p>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {new Date(event.event_date).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="secondary" className="capitalize">
-                      {event.event_type?.replace("_", " ")}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {event.attendee_count || 0}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+                      {event.attendee_count || 0}
+                    </Td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </Panel>
       )}
     </div>
+  );
+}
+
+function Th({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <th
+      className={className}
+      style={{
+        textAlign: "left",
+        fontSize: 11,
+        fontWeight: 600,
+        textTransform: "uppercase",
+        letterSpacing: "0.1em",
+        color: "var(--ds-fg-muted)",
+        padding: "10px 16px",
+        borderBottom: "1px solid var(--ds-border)",
+        background: "var(--paper-50)",
+      }}
+    >
+      {children}
+    </th>
+  );
+}
+
+function Td({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <td
+      style={{
+        padding: "14px 16px",
+        verticalAlign: "middle",
+        color: "var(--ink-700)",
+        ...style,
+      }}
+    >
+      {children}
+    </td>
   );
 }

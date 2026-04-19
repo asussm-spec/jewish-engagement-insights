@@ -1,23 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { cn } from "@/lib/utils";
+  PageHead,
+  Panel,
+  DsButton,
+} from "@/components/layout/page-primitives";
 import { Plus, Users } from "lucide-react";
 
 export default async function PopulationPage() {
@@ -43,73 +31,161 @@ export default async function PopulationPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Population</h1>
-          <p className="mt-1 text-muted-foreground">
-            Upload and analyze your membership and contact data
-          </p>
-        </div>
-        <Link
-          href="/dashboard/population/new"
-          className={cn(buttonVariants())}
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Upload population data
-        </Link>
-      </div>
+      <PageHead
+        breadcrumb={[{ label: "Workspace" }, { label: "Population" }]}
+        title="Population"
+        subtitle="Upload and analyze your membership and contact data."
+        actions={
+          <DsButton href="/dashboard/population/new" variant="primary" size="sm">
+            <Plus className="h-3.5 w-3.5" />
+            Upload population data
+          </DsButton>
+        }
+      />
 
       {!uploads || uploads.length === 0 ? (
-        <Card className="border-dashed">
-          <CardHeader className="text-center py-12">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-navy/5">
-              <Users className="h-6 w-6 text-navy" />
+        <Panel>
+          <div
+            className="text-center"
+            style={{ padding: "48px 40px", borderStyle: "dashed" }}
+          >
+            <div
+              className="mx-auto mb-4 flex h-12 w-12 items-center justify-center"
+              style={{ background: "var(--paper-100)", borderRadius: 10 }}
+            >
+              <Users className="h-5 w-5" style={{ color: "var(--ink-600)" }} />
             </div>
-            <CardTitle className="text-lg">No population data yet</CardTitle>
-            <CardDescription>
+            <div
+              className="font-serif"
+              style={{
+                fontWeight: 500,
+                fontSize: 20,
+                color: "var(--ink-800)",
+                letterSpacing: "-0.01em",
+                marginBottom: 6,
+              }}
+            >
+              No population data yet.
+            </div>
+            <p
+              className="mx-auto"
+              style={{
+                fontSize: 14,
+                color: "var(--stone-500)",
+                maxWidth: 480,
+                lineHeight: 1.55,
+              }}
+            >
               Upload a membership list or contact spreadsheet to start building
               your population profile. People who already exist from event
               uploads will be enriched with the new data.
-            </CardDescription>
-          </CardHeader>
-        </Card>
+            </p>
+          </div>
+        </Panel>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Upload name</TableHead>
-                <TableHead>Date uploaded</TableHead>
-                <TableHead className="text-right">Members</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+        <Panel>
+          <table
+            className="w-full"
+            style={{ borderCollapse: "collapse", fontSize: 13 }}
+          >
+            <thead>
+              <tr>
+                <Th>Upload</Th>
+                <Th>Date uploaded</Th>
+                <Th className="text-right">Members</Th>
+              </tr>
+            </thead>
+            <tbody>
               {uploads.map((upload) => (
-                <TableRow key={upload.id}>
-                  <TableCell>
-                    <p className="font-medium">{upload.name}</p>
+                <tr
+                  key={upload.id}
+                  style={{ borderBottom: "1px solid var(--ds-border)" }}
+                  className="hover:bg-[color:var(--paper-100)] transition-colors"
+                >
+                  <Td>
+                    <Link
+                      href={`/dashboard/population/${upload.id}`}
+                      className="no-underline"
+                      style={{ color: "var(--ink-800)", fontWeight: 500 }}
+                    >
+                      {upload.name}
+                    </Link>
                     {upload.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-xs">
+                      <p
+                        className="truncate max-w-sm"
+                        style={{
+                          fontSize: 12,
+                          color: "var(--ds-fg-muted)",
+                          marginTop: 2,
+                        }}
+                      >
                         {upload.description}
                       </p>
                     )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
+                  </Td>
+                  <Td style={{ color: "var(--ds-fg-muted)" }}>
                     {new Date(upload.created_at).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                       year: "numeric",
                     })}
-                  </TableCell>
-                  <TableCell className="text-right">
+                  </Td>
+                  <Td
+                    style={{
+                      textAlign: "right",
+                      fontVariantNumeric: "tabular-nums",
+                    }}
+                  >
                     {upload.member_count || 0}
-                  </TableCell>
-                </TableRow>
+                  </Td>
+                </tr>
               ))}
-            </TableBody>
-          </Table>
-        </Card>
+            </tbody>
+          </table>
+        </Panel>
       )}
     </div>
+  );
+}
+
+function Th({ children, className }: { children: React.ReactNode; className?: string }) {
+  return (
+    <th
+      className={className}
+      style={{
+        textAlign: "left",
+        fontSize: 11,
+        fontWeight: 600,
+        textTransform: "uppercase",
+        letterSpacing: "0.1em",
+        color: "var(--ds-fg-muted)",
+        padding: "10px 16px",
+        borderBottom: "1px solid var(--ds-border)",
+        background: "var(--paper-50)",
+      }}
+    >
+      {children}
+    </th>
+  );
+}
+
+function Td({
+  children,
+  style,
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <td
+      style={{
+        padding: "14px 16px",
+        verticalAlign: "middle",
+        color: "var(--ink-700)",
+        ...style,
+      }}
+    >
+      {children}
+    </td>
   );
 }

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,9 +17,9 @@ import {
   CalendarDays,
   Users,
   LayoutDashboard,
-  Upload,
   LogOut,
-  Building2,
+  Settings,
+  HelpCircle,
   ChevronDown,
 } from "lucide-react";
 import type { User } from "@supabase/supabase-js";
@@ -37,28 +36,38 @@ interface Profile {
   } | null;
 }
 
-const navItems = [
-  {
-    label: "Dashboard",
-    href: "/dashboard",
-    icon: LayoutDashboard,
-  },
-  {
-    label: "Events",
-    href: "/dashboard/events",
-    icon: CalendarDays,
-  },
-  {
-    label: "Population",
-    href: "/dashboard/population",
-    icon: Users,
-  },
-  {
-    label: "Insights",
-    href: "/dashboard/insights",
-    icon: BarChart3,
-  },
+type NavItem = {
+  label: string;
+  href: string;
+  icon: React.ElementType;
+  section: "Workspace" | "Account";
+};
+
+const navItems: NavItem[] = [
+  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, section: "Workspace" },
+  { label: "Events", href: "/dashboard/events", icon: CalendarDays, section: "Workspace" },
+  { label: "Population", href: "/dashboard/population", icon: Users, section: "Workspace" },
+  { label: "Insights", href: "/dashboard/insights", icon: BarChart3, section: "Workspace" },
 ];
+
+const accountItems: NavItem[] = [
+  { label: "Settings", href: "/dashboard/settings", icon: Settings, section: "Account" },
+  { label: "Help", href: "/dashboard/help", icon: HelpCircle, section: "Account" },
+];
+
+function BrandMark({ size = 26 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="5" fill="#1d2a5e" />
+      <path
+        d="M7 9.5L14 6L21 9.5V18.5L14 22L7 18.5V9.5Z"
+        stroke="#b8892c"
+        strokeWidth="1.4"
+      />
+      <circle cx="14" cy="14" r="2" fill="#b8892c" />
+    </svg>
+  );
+}
 
 export function DashboardShell({
   user,
@@ -90,73 +99,114 @@ export function DashboardShell({
     router.push("/");
   }
 
+  const isActive = (href: string) =>
+    href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
+
   return (
-    <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <aside className="sticky top-0 flex h-screen w-64 flex-col border-r bg-white">
-        {/* Logo */}
-        <div className="flex h-16 items-center gap-2.5 border-b px-5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-navy text-white">
-            <BarChart3 className="h-4 w-4" />
+    <div
+      className="grid min-h-screen"
+      style={{
+        gridTemplateColumns: "232px 1fr",
+        background: "var(--paper-50)",
+      }}
+    >
+      {/* ── Sidebar ── */}
+      <aside
+        className="sticky top-0 flex h-screen flex-col px-3.5 py-5"
+        style={{
+          background: "var(--ds-bg-elevated)",
+          borderRight: "1px solid var(--ds-border)",
+        }}
+      >
+        <div
+          className="flex items-center gap-2.5 px-2 pb-5 mb-3"
+          style={{ borderBottom: "1px solid var(--ds-border)" }}
+        >
+          <BrandMark />
+          <div
+            className="font-serif leading-tight"
+            style={{ fontSize: 14, fontWeight: 500, color: "var(--ink-800)" }}
+          >
+            Engagement
+            {orgName && (
+              <div
+                className="font-sans font-semibold uppercase"
+                style={{
+                  fontSize: 10,
+                  letterSpacing: "0.12em",
+                  color: "var(--ochre-500)",
+                  marginTop: 3,
+                }}
+              >
+                {orgName}
+              </div>
+            )}
           </div>
-          <span className="text-sm font-semibold tracking-tight">
-            Engagement Insights
-          </span>
         </div>
 
-        {/* Org context */}
-        {orgName && (
-          <div className="border-b px-5 py-3">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <Building2 className="h-3.5 w-3.5" />
-              {orgName}
-            </div>
-          </div>
-        )}
+        <div
+          className="font-semibold uppercase px-2 pt-3 pb-1.5"
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.12em",
+            color: "var(--stone-400)",
+          }}
+        >
+          Workspace
+        </div>
+        {navItems.map((item) => (
+          <SidenavLink key={item.href} item={item} active={isActive(item.href)} />
+        ))}
 
-        {/* Nav */}
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {navItems.map((item) => {
-            const isActive =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(item.href);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-navy/5 text-navy"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <div
+          className="font-semibold uppercase px-2 pt-3 pb-1.5"
+          style={{
+            fontSize: 10,
+            letterSpacing: "0.12em",
+            color: "var(--stone-400)",
+          }}
+        >
+          Account
+        </div>
+        {accountItems.map((item) => (
+          <SidenavLink key={item.href} item={item} active={isActive(item.href)} />
+        ))}
 
-        {/* User menu */}
-        <div className="border-t p-3">
+        <div className="mt-auto pt-3" style={{ borderTop: "1px solid var(--ds-border)" }}>
           <DropdownMenu>
-            <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm hover:bg-muted transition-colors">
-                <Avatar className="h-8 w-8">
-                  <AvatarFallback className="bg-navy/10 text-navy text-xs">
-                    {initials}
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 text-left">
-                  <p className="text-sm font-medium truncate">{displayName}</p>
-                  {profile?.role && (
-                    <p className="text-xs text-muted-foreground capitalize">
-                      {profile.role.replace("_", " ")}
-                    </p>
-                  )}
-                </div>
-                <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <DropdownMenuTrigger
+              className="flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors"
+              style={{ color: "var(--stone-500)" }}
+            >
+              <Avatar className="h-7 w-7">
+                <AvatarFallback
+                  style={{
+                    background: "var(--paper-100)",
+                    color: "var(--ochre-500)",
+                    fontSize: 11,
+                    fontWeight: 500,
+                  }}
+                >
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex-1 min-w-0">
+                <p
+                  className="truncate"
+                  style={{ fontSize: 13, color: "var(--ink-800)", fontWeight: 500 }}
+                >
+                  {displayName}
+                </p>
+                {profile?.role && (
+                  <p
+                    className="capitalize"
+                    style={{ fontSize: 11, color: "var(--ds-fg-muted)" }}
+                  >
+                    {profile.role.replace("_", " ")}
+                  </p>
+                )}
+              </div>
+              <ChevronDown className="h-3.5 w-3.5" style={{ color: "var(--stone-400)" }} />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuItem className="text-xs text-muted-foreground" disabled>
@@ -172,12 +222,46 @@ export function DashboardShell({
         </div>
       </aside>
 
-      {/* Main content */}
-      <main className="flex-1 bg-cream/50">
-        <div className="container mx-auto max-w-6xl px-8 py-8">
-          {children}
-        </div>
+      {/* ── Main ── */}
+      <main className="min-w-0" style={{ padding: "28px 40px 80px" }}>
+        {children}
       </main>
     </div>
+  );
+}
+
+function SidenavLink({ item, active }: { item: NavItem; active: boolean }) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        "relative flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-[13px] transition-colors"
+      )}
+      style={{
+        color: active ? "var(--ink-800)" : "var(--stone-500)",
+        background: active ? "var(--paper-100)" : "transparent",
+        fontWeight: active ? 500 : 400,
+      }}
+    >
+      {active && (
+        <span
+          className="absolute"
+          style={{
+            left: -3,
+            top: 8,
+            bottom: 8,
+            width: 3,
+            background: "var(--ochre-400)",
+            borderRadius: "0 2px 2px 0",
+          }}
+        />
+      )}
+      <Icon
+        className="h-3.5 w-3.5"
+        style={{ color: active ? "var(--ochre-400)" : "var(--stone-400)" }}
+      />
+      {item.label}
+    </Link>
   );
 }

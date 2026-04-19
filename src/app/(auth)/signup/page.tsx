@@ -15,7 +15,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { BarChart3 } from "lucide-react";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -62,10 +61,23 @@ export default function SignupPage() {
 
   if (success) {
     return (
-      <div className="flex min-h-full flex-col items-center justify-center bg-cream px-4 py-12">
+      <div
+        className="flex min-h-full flex-col items-center justify-center px-4 py-12"
+        style={{ background: "var(--paper-50)" }}
+      >
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Check your email</CardTitle>
+            <CardTitle
+              className="font-serif"
+              style={{
+                fontSize: 26,
+                fontWeight: 500,
+                color: "var(--ink-800)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              Check your email
+            </CardTitle>
             <CardDescription>
               We sent a confirmation link to <strong>{email}</strong>. Click the
               link to activate your account.
@@ -77,19 +89,46 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-full flex-col items-center justify-center bg-cream px-4 py-12">
-      <Link href="/" className="mb-8 flex items-center gap-2.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-navy text-white">
-          <BarChart3 className="h-5 w-5" />
-        </div>
-        <span className="text-lg font-semibold tracking-tight">
+    <div
+      className="flex min-h-full flex-col items-center justify-center px-4 py-12"
+      style={{ background: "var(--paper-50)" }}
+    >
+      <Link href="/" className="mb-8 flex items-center gap-3 no-underline">
+        <svg width={28} height={28} viewBox="0 0 28 28" fill="none">
+          <rect width="28" height="28" rx="6" fill="#1d2a5e" />
+          <path
+            d="M7 9.5L14 6L21 9.5V18.5L14 22L7 18.5V9.5Z"
+            stroke="#b8892c"
+            strokeWidth="1.4"
+          />
+          <circle cx="14" cy="14" r="2.2" fill="#b8892c" />
+        </svg>
+        <span
+          className="font-serif"
+          style={{
+            fontSize: 17,
+            fontWeight: 500,
+            color: "var(--ink-800)",
+            letterSpacing: "-0.01em",
+          }}
+        >
           Jewish Engagement Insights
         </span>
       </Link>
 
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Create your account</CardTitle>
+          <CardTitle
+            className="font-serif"
+            style={{
+              fontSize: 26,
+              fontWeight: 500,
+              color: "var(--ink-800)",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            Create your account
+          </CardTitle>
           <CardDescription>
             Start uploading event data and gain community insights
           </CardDescription>
@@ -175,7 +214,11 @@ export default function SignupPage() {
 
           <p className="mt-6 text-center text-sm text-muted-foreground">
             Already have an account?{" "}
-            <Link href="/login" className="font-medium text-navy underline-offset-4 hover:underline">
+            <Link
+              href="/login"
+              className="font-medium underline-offset-4 hover:underline"
+              style={{ color: "var(--ochre-500)" }}
+            >
               Sign in
             </Link>
           </p>

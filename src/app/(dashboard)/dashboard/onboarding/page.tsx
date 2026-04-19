@@ -204,10 +204,26 @@ export default function OnboardingPage() {
     <div className="flex items-center justify-center min-h-[60vh]">
       <Card className="w-full max-w-lg">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-gold/10">
-            <Building2 className="h-6 w-6 text-gold" />
+          <div
+            className="mx-auto mb-4 flex h-12 w-12 items-center justify-center"
+            style={{
+              background: "var(--ochre-100)",
+              borderRadius: 10,
+            }}
+          >
+            <Building2 className="h-5 w-5" style={{ color: "var(--ochre-500)" }} />
           </div>
-          <CardTitle className="text-2xl">Set up your account</CardTitle>
+          <CardTitle
+            className="font-serif"
+            style={{
+              fontSize: 26,
+              fontWeight: 500,
+              color: "var(--ink-800)",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            Set up your account
+          </CardTitle>
           <CardDescription>
             {matchedOrg
               ? `We recognized your email — you're part of ${matchedOrg.name}. Just pick your role to get started.`

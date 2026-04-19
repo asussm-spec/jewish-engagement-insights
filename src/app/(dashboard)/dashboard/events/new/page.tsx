@@ -211,21 +211,47 @@ export default function NewEventPage() {
 
   return (
     <div>
-      <Link
-        href="/dashboard/events"
-        className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to events
-      </Link>
+      <div className="mb-7">
+        <div className="text-[12px] mb-1" style={{ color: "var(--ds-fg-muted)" }}>
+          <Link
+            href="/dashboard/events"
+            className="no-underline hover:underline"
+            style={{ color: "var(--ds-fg-muted)" }}
+          >
+            Events
+          </Link>
+          <span className="mx-1.5">/</span>
+          <span>New</span>
+        </div>
+        <h1
+          className="font-serif"
+          style={{
+            fontWeight: 500,
+            fontSize: 32,
+            letterSpacing: "-0.015em",
+            color: "var(--ink-800)",
+            margin: 0,
+            lineHeight: 1.2,
+          }}
+        >
+          Log a new event.
+        </h1>
+        <div
+          style={{
+            color: "var(--stone-500)",
+            fontSize: 14,
+            marginTop: 4,
+          }}
+        >
+          Enter the details of your event. You&apos;ll upload attendee data in
+          the next step.
+        </div>
+      </div>
 
       <Card className="max-w-2xl">
-        <CardHeader>
-          <CardTitle className="text-xl">Log a new event</CardTitle>
-          <CardDescription>
-            Enter the details of your event. You&apos;ll upload attendee data in
-            the next step.
-          </CardDescription>
+        <CardHeader className="pb-3">
+          <CardTitle className="sr-only">Event details</CardTitle>
+          <CardDescription className="sr-only">Event form</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-5">
