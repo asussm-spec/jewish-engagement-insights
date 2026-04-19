@@ -133,11 +133,15 @@ function DemographicPieChart({
   return (
     <Card>
       <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between gap-2">
           <CardTitle className="text-base">{field.label}</CardTitle>
-          <span className="text-xs text-muted-foreground">
-            {field.total} of {totalAttendees} ({coveragePct}% coverage)
-          </span>
+          <div className="flex items-baseline gap-1.5 text-xs shrink-0">
+            <span className="font-semibold tabular-nums">n={field.total}</span>
+            <span className="text-muted-foreground">·</span>
+            <span className="text-muted-foreground tabular-nums">
+              {coveragePct}% of {totalAttendees}
+            </span>
+          </div>
         </div>
       </CardHeader>
       <CardContent>

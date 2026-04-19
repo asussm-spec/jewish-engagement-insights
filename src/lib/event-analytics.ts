@@ -295,43 +295,41 @@ export async function getEventDemographics(
     });
   }
 
-  // Membership status
+  // Membership status — only chart people who actually have this field set.
+  // People with null are excluded from the chart denominator; coverage
+  // communicates how much of the population we have this data for.
   const withMembership = profiles.filter((p) => p.is_member !== null);
   if (withMembership.length / total >= MIN_COVERAGE) {
     const members = withMembership.filter((p) => p.is_member === true).length;
     const nonMembers = withMembership.filter((p) => p.is_member === false).length;
-    const unknown = total - withMembership.length;
     const segments = [
       { name: "Member", value: members },
       { name: "Non-member", value: nonMembers },
-    ];
-    if (unknown > 0) segments.push({ name: "Unknown", value: unknown });
+    ].filter((s) => s.value > 0);
     fields.push({
       key: "is_member",
       label: "Membership Status",
-      segments: segments.filter((s) => s.value > 0),
+      segments,
       coverage: withMembership.length / total,
-      total,
+      total: withMembership.length,
     });
   }
 
-  // Has children
+  // Has children — same approach, exclude "unknown" from segments.
   const withChildrenData = profiles.filter((p) => p.has_children !== null);
   if (withChildrenData.length / total >= MIN_COVERAGE) {
     const yes = withChildrenData.filter((p) => p.has_children === true).length;
     const no = withChildrenData.filter((p) => p.has_children === false).length;
-    const unknown = total - withChildrenData.length;
     const segments = [
       { name: "Has children", value: yes },
       { name: "No children", value: no },
-    ];
-    if (unknown > 0) segments.push({ name: "Unknown", value: unknown });
+    ].filter((s) => s.value > 0);
     fields.push({
       key: "has_children",
       label: "Has Children",
-      segments: segments.filter((s) => s.value > 0),
+      segments,
       coverage: withChildrenData.length / total,
-      total,
+      total: withChildrenData.length,
     });
   }
 
