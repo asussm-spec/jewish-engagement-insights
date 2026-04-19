@@ -335,18 +335,31 @@ export async function getEventDemographics(
     });
   }
 
-  // Dynamic attributes from JSONB — scan all profiles and find common attributes
-  // First, fetch field registry to know which fields are text (non-chartable)
-  const { data: registryFields } = await supabase
-    .from("field_registry")
-    .select("key, data_type");
-  const fieldTypes: Record<string, string> = {};
-  if (registryFields) {
-    for (const f of registryFields) fieldTypes[f.key] = f.data_type;
-  }
-
-  // Skip text-type fields — names, addresses, free-text aren't meaningful in charts
-  const NON_CHARTABLE_TYPES = new Set(["text", "date"]);
+  // Dynamic attributes from JSONB — scan all profiles and find common attributes.
+  // Allowlist: only chart fields that are actual demographic attributes —
+  // comparable population characteristics. Excludes PII (phone, email, name),
+  // operational/behavioral fields (registration channel, dietary notes,
+  // program interests, RSVP source), and free text.
+  // Strips any "org:<uuid>:" prefix before matching.
+  const DEMOGRAPHIC_PATTERNS = [
+    /age/i,
+    /denomination/i,
+    /gender/i, /\bsex\b/i,
+    /membership/i, /\bmember\b/i, /\btier\b/i,
+    /life[_-]?stage/i, /family[_-]?stage/i,
+    /marital/i, /relationship[_-]?status/i,
+    /household/i, /family[_-]?size/i,
+    /children/i, /\bkids\b/i,
+    /\bzip\b/i, /postal/i, /neighborhood/i, /\bcity\b/i,
+    /language/i,
+    /ethnicity/i, /\brace\b/i, /heritage/i,
+    /education/i,
+    /occupation/i, /profession/i,
+    /income/i,
+  ];
+  const stripOrgPrefix = (k: string) => k.replace(/^org:[^:]+:/, "");
+  const isDemographic = (k: string) =>
+    DEMOGRAPHIC_PATTERNS.some((re) => re.test(stripOrgPrefix(k)));
 
   const attrCounts: Record<string, Record<string, number>> = {};
   const attrTotals: Record<string, number> = {};
@@ -356,8 +369,8 @@ export async function getEventDemographics(
     for (const [key, value] of Object.entries(attrs)) {
       if (key === "is_child" || key === "parent_id") continue; // skip internal attrs
       if (!value || typeof value !== "string") continue;
-      // Skip fields whose registry data_type is text
-      if (NON_CHARTABLE_TYPES.has(fieldTypes[key] || "")) continue;
+      // Only include recognized demographic fields
+      if (!isDemographic(key)) continue;
       if (!attrCounts[key]) attrCounts[key] = {};
       attrCounts[key][value] = (attrCounts[key][value] || 0) + 1;
       attrTotals[key] = (attrTotals[key] || 0) + 1;
@@ -382,8 +395,13 @@ export async function getEventDemographics(
 
     if (segments.length < 2) continue; // not interesting if only one value
 
-    // Clean up the key into a readable label
-    const label = key
+    // Identifier heuristic: if no single value is shared by 2+ people, this
+    // is a high-cardinality identifier (phone numbers, IDs), not a demographic.
+    if (segments[0].value < 2) continue;
+
+    // Strip org-scoped prefix like "org:uuid:" before building the label
+    const cleanKey = stripOrgPrefix(key);
+    const label = cleanKey
       .replace(/_/g, " ")
       .replace(/\b\w/g, (c) => c.toUpperCase());
 
