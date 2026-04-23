@@ -1,14 +1,31 @@
+import { cookies } from "next/headers";
 import { PageHead, Panel } from "@/components/layout/page-primitives";
 import { BarChart3 } from "lucide-react";
+import { CommunityInsights } from "@/components/insights/community-insights";
 
-export default function InsightsPage() {
+export default async function InsightsPage() {
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get("demo_mode")?.value === "true";
+
+  if (isDemo) {
+    return (
+      <div>
+        <PageHead
+          breadcrumb={[{ label: "Workspace" }, { label: "Community Insights" }]}
+          title="Community Insights"
+          subtitle="Cross-organizational analytics across the Greater Boston Jewish community."
+        />
+        <CommunityInsights />
+      </div>
+    );
+  }
+
   return (
     <div>
       <PageHead
-        breadcrumb={[{ label: "Workspace" }, { label: "Insights" }]}
-        eyebrow="Quarterly memo"
-        title="What we learned this quarter."
-        subtitle="A memo for rabbis and lay leaders. Skim in 3 minutes; read in 10."
+        breadcrumb={[{ label: "Workspace" }, { label: "Community Insights" }]}
+        title="Community Insights"
+        subtitle="Cross-organizational benchmarks and community-wide analytics."
       />
       <Panel>
         <div
@@ -31,7 +48,7 @@ export default function InsightsPage() {
               marginBottom: 8,
             }}
           >
-            Your first memo is still being composed.
+            Community insights are still being composed.
           </div>
           <p
             className="mx-auto"
@@ -42,10 +59,8 @@ export default function InsightsPage() {
               lineHeight: 1.6,
             }}
           >
-            Insights arrive once you have a population file and at least three
-            events logged. The system will surface three things worth acting
-            on — each with evidence, a suggested next step, and the list of
-            people it&apos;s about.
+            Cross-org benchmarking and community-wide analytics arrive once
+            multiple organizations are uploading data.
           </p>
         </div>
       </Panel>

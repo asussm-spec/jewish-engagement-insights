@@ -47,7 +47,7 @@ const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, section: "Workspace" },
   { label: "Events", href: "/dashboard/events", icon: CalendarDays, section: "Workspace" },
   { label: "Population", href: "/dashboard/population", icon: Users, section: "Workspace" },
-  { label: "Insights", href: "/dashboard/insights", icon: BarChart3, section: "Workspace" },
+  { label: "Community Insights", href: "/dashboard/insights", icon: BarChart3, section: "Workspace" },
 ];
 
 const accountItems: NavItem[] = [
