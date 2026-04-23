@@ -33,7 +33,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Upload, FileSpreadsheet, Check, Plus } from "lucide-react";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { ArrowLeft, Upload, FileSpreadsheet, Check, Plus, UserPlus, UserCheck, UserMinus, AlertCircle } from "lucide-react";
+import type { ValidationResult } from "@/app/api/population/validate-members/route";
+import { findMockMember, diffMockMember } from "@/lib/mock-member-database";
 import Link from "next/link";
 
 interface FieldDef {
@@ -63,7 +73,26 @@ const CATEGORY_ORDER = [
   "geographic",
 ];
 
-type Step = "info" | "upload" | "map" | "done";
+type Step = "info" | "upload" | "map" | "validate" | "done";
+
+const DEMO_VALIDATION: ValidationResult = {
+  totalRows: 847,
+  skippedRows: 12,
+  newMembers: 43,
+  updatedMembers: 186,
+  unchangedMembers: 606,
+  samples: [
+    { status: "new", email: "j***@gmail.com", name: "Jessica Bloom" },
+    { status: "new", email: "d***@outlook.com", name: "David Horowitz" },
+    { status: "new", email: "r***@gmail.com", name: "Rachel Stern" },
+    { status: "updated", email: "s***@gmail.com", name: "Sarah Goldstein", updatedFields: ["Address", "Membership Type"] },
+    { status: "updated", email: "m***@yahoo.com", name: "Michael Katz", updatedFields: ["Phone", "Child 2 Name", "Child 2 Dob"] },
+    { status: "updated", email: "a***@gmail.com", name: "Abigail Schwartz", updatedFields: ["Denomination"] },
+    { status: "updated", email: "n***@gmail.com", name: "Noah Friedman", updatedFields: ["Is Volunteer"] },
+    { status: "unchanged", email: "e***@gmail.com", name: "Eli Cohen" },
+    { status: "unchanged", email: "h***@comcast.net", name: "Hannah Levy" },
+  ],
+};
 
 export default function NewPopulationUploadPage() {
   const router = useRouter();
@@ -84,6 +113,9 @@ export default function NewPopulationUploadPage() {
   const [error, setError] = useState<string | null>(null);
   const [processedCount, setProcessedCount] = useState(0);
   const [populationId, setPopulationId] = useState<string | null>(null);
+
+  // Validation results
+  const [validation, setValidation] = useState<ValidationResult | null>(null);
 
   // Field registry from Supabase
   const [fields, setFields] = useState<FieldDef[]>([]);
@@ -294,17 +326,120 @@ export default function NewPopulationUploadPage() {
     (v) => v !== "skip"
   ).length;
 
-  async function handleProcess() {
+  async function handleValidate() {
     setLoading(true);
     setError(null);
 
     try {
+      // Check if demo mode (cookie-based)
+      const isDemo = document.cookie.includes("demo_mode=true");
+      if (isDemo) {
+        await new Promise((r) => setTimeout(r, 1200));
+
+        // Build column map: field_key → spreadsheet column name
+        const columnMap: Record<string, string> = {};
+        for (const [col, field] of Object.entries(mappings)) {
+          if (field !== "skip" && field !== "__new__") columnMap[field] = col;
+        }
+        const emailCol = columnMap.email;
+
+        let newCount = 0, updatedCount = 0, unchangedCount = 0, skipped = 0;
+        const sampleRows: ValidationResult["samples"] = [];
+
+        for (const row of rows) {
+          const email = emailCol ? row[emailCol]?.toString().trim().toLowerCase() : "";
+          if (!email || !email.includes("@")) { skipped++; continue; }
+
+          const fn = columnMap.first_name ? row[columnMap.first_name]?.toString().trim() : "";
+          const ln = columnMap.last_name ? row[columnMap.last_name]?.toString().trim() : "";
+          const name = [fn, ln].filter(Boolean).join(" ") || "Unknown";
+          const masked = email[0] + "***@" + email.split("@")[1];
+
+          const existing = findMockMember(email);
+
+          if (!existing) {
+            newCount++;
+            if (sampleRows.length < 12) sampleRows.push({ status: "new", email: masked, name });
+          } else {
+            const changedFields = diffMockMember(existing, row, columnMap);
+            if (changedFields.length > 0) {
+              updatedCount++;
+              if (sampleRows.length < 12) sampleRows.push({ status: "updated", email: masked, name, updatedFields: changedFields });
+            } else {
+              unchangedCount++;
+              if (sampleRows.length < 12 && sampleRows.filter((s) => s.status === "unchanged").length < 3) {
+                sampleRows.push({ status: "unchanged", email: masked, name });
+              }
+            }
+          }
+        }
+
+        setValidation({
+          totalRows: rows.length,
+          skippedRows: skipped,
+          newMembers: newCount,
+          updatedMembers: updatedCount,
+          unchangedMembers: unchangedCount,
+          samples: sampleRows,
+        });
+        setStep("validate");
+        setLoading(false);
+        return;
+      }
+
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Get user's org
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("organization_id")
+        .eq("id", user.id)
+        .single();
+
+      const response = await fetch("/api/population/validate-members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mappings,
+          rows,
+          organizationId: profile?.organization_id,
+        }),
+      });
+
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error || "Validation failed");
+
+      setValidation(result);
+      setStep("validate");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleProcess() {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Demo mode — just go to done
+      const isDemo = document.cookie.includes("demo_mode=true");
+      if (isDemo) {
+        await new Promise((r) => setTimeout(r, 800));
+        setProcessedCount(validation?.newMembers ?? 0 + (validation?.updatedMembers ?? 0));
+        setStep("done");
+        setLoading(false);
+        return;
+      }
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
       const { data: profile } = await supabase
         .from("profiles")
         .select("organization_id")
@@ -313,7 +448,6 @@ export default function NewPopulationUploadPage() {
 
       if (!profile?.organization_id) throw new Error("No organization");
 
-      // Create the population upload record
       const { data: popUpload, error: popError } = await supabase
         .from("population_uploads")
         .insert({
@@ -328,7 +462,6 @@ export default function NewPopulationUploadPage() {
       if (popError) throw popError;
       setPopulationId(popUpload.id);
 
-      // Process members
       const response = await fetch("/api/population/process-members", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -340,10 +473,7 @@ export default function NewPopulationUploadPage() {
       });
 
       const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to process members");
-      }
+      if (!response.ok) throw new Error(result.error || "Failed to process members");
 
       setProcessedCount(result.processedCount);
       setStep("done");
@@ -374,8 +504,8 @@ export default function NewPopulationUploadPage() {
 
       {/* Progress indicator */}
       <div className="flex items-center gap-2 mb-8">
-        {["Describe", "Upload", "Map columns"].map((label, i) => {
-          const stepOrder: Step[] = ["info", "upload", "map", "done"];
+        {["Describe", "Upload", "Map columns", "Review"].map((label, i) => {
+          const stepOrder: Step[] = ["info", "upload", "map", "validate", "done"];
           const currentIndex = stepOrder.indexOf(step);
           const isActive = i <= currentIndex;
           return (
@@ -609,18 +739,125 @@ export default function NewPopulationUploadPage() {
               </Button>
               <Button
                 disabled={!hasEmail || loading}
-                onClick={handleProcess}
+                onClick={handleValidate}
               >
                 {loading
-                  ? "Processing..."
-                  : `Process ${rows.length} members`}
+                  ? "Validating..."
+                  : `Review ${rows.length} members`}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {/* Step 4: Done */}
+      {/* Step 4: Validate / Review */}
+      {step === "validate" && validation && (
+        <div className="max-w-3xl space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-xl">Review changes</CardTitle>
+              <CardDescription>
+                Here&apos;s what will happen when you import this data.
+                {validation.skippedRows > 0 && (
+                  <span className="text-amber-600"> {validation.skippedRows} rows will be skipped (no valid email).</span>
+                )}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-3 gap-4 mb-6">
+                <div className="rounded-lg border p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <UserPlus className="h-4 w-4 text-emerald-600" />
+                    <span className="text-2xl font-bold text-emerald-600">{validation.newMembers}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">New members</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Not in system yet</p>
+                </div>
+                <div className="rounded-lg border p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <UserCheck className="h-4 w-4 text-blue-600" />
+                    <span className="text-2xl font-bold text-blue-600">{validation.updatedMembers}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Updated members</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Existing, new data</p>
+                </div>
+                <div className="rounded-lg border p-4 text-center">
+                  <div className="flex items-center justify-center gap-2 mb-1">
+                    <UserMinus className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-2xl font-bold">{validation.unchangedMembers}</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground">Unchanged</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Already up to date</p>
+                </div>
+              </div>
+
+              {/* Sample table */}
+              {validation.samples.length > 0 && (
+                <div>
+                  <p className="text-sm font-medium mb-2">Sample of changes</p>
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-24">Status</TableHead>
+                          <TableHead>Name</TableHead>
+                          <TableHead>Email</TableHead>
+                          <TableHead>Fields changing</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {validation.samples.map((sample, i) => (
+                          <TableRow key={i}>
+                            <TableCell>
+                              {sample.status === "new" && (
+                                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">New</Badge>
+                              )}
+                              {sample.status === "updated" && (
+                                <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">Updated</Badge>
+                              )}
+                              {sample.status === "unchanged" && (
+                                <Badge variant="secondary">No change</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="font-medium">{sample.name}</TableCell>
+                            <TableCell className="text-muted-foreground text-xs font-mono">{sample.email}</TableCell>
+                            <TableCell>
+                              {sample.updatedFields ? (
+                                <span className="text-xs text-muted-foreground">
+                                  {sample.updatedFields.join(", ")}
+                                </span>
+                              ) : sample.status === "new" ? (
+                                <span className="text-xs text-muted-foreground">All fields (new record)</span>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">—</span>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              )}
+
+              {error && <p className="mt-4 text-sm text-destructive">{error}</p>}
+
+              <div className="flex justify-between gap-3 mt-6">
+                <Button variant="outline" onClick={() => setStep("map")}>
+                  Back to mapping
+                </Button>
+                <Button onClick={handleProcess} disabled={loading}>
+                  {loading
+                    ? "Processing..."
+                    : `Confirm & import ${validation.newMembers + validation.updatedMembers} members`}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Step 5: Done */}
       {step === "done" && (
         <Card className="max-w-2xl">
           <CardHeader className="text-center pb-2">
@@ -628,23 +865,25 @@ export default function NewPopulationUploadPage() {
               <Check className="h-7 w-7 text-green-600" />
             </div>
             <CardTitle className="text-xl">
-              {processedCount} members processed
+              Import complete
             </CardTitle>
-            <CardDescription>
-              Member data has been anonymized and merged into the community
-              dataset. People who already existed have been enriched with the new data.
+            <CardDescription className="max-w-md mx-auto">
+              {validation ? (
+                <>
+                  <span className="font-medium text-emerald-600">{validation.newMembers} new</span>
+                  {" and "}
+                  <span className="font-medium text-blue-600">{validation.updatedMembers} updated</span>
+                  {" members have been merged into your population data."}
+                </>
+              ) : (
+                `${processedCount} members have been processed and merged.`
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center gap-3 pb-8">
             <Button
               variant="outline"
-              onClick={() => router.push("/dashboard/population")}
-            >
-              Back to population
-            </Button>
-            <Button
               onClick={() => {
-                // Reset for another upload
                 setStep("info");
                 setUploadName("");
                 setUploadDescription("");
@@ -654,9 +893,15 @@ export default function NewPopulationUploadPage() {
                 setMappings({});
                 setProcessedCount(0);
                 setPopulationId(null);
+                setValidation(null);
               }}
             >
               Upload another list
+            </Button>
+            <Button
+              onClick={() => router.push("/dashboard/population")}
+            >
+              Review updated population
             </Button>
           </CardContent>
         </Card>

@@ -39,14 +39,27 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Allow demo mode to bypass auth
+  const isDemo = request.nextUrl.searchParams.get("demo") === "true" ||
+    request.cookies.get("demo_mode")?.value === "true";
+
   // Protect dashboard routes — redirect to login if not authenticated
   if (
     !user &&
+    !isDemo &&
     request.nextUrl.pathname.startsWith("/dashboard")
   ) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  // Set demo cookie so subsequent navigations stay in demo mode
+  if (isDemo && !request.cookies.get("demo_mode")) {
+    supabaseResponse.cookies.set("demo_mode", "true", {
+      path: "/",
+      maxAge: 60 * 60 * 4, // 4 hours
+    });
   }
 
   // Redirect logged-in users away from auth pages
@@ -65,6 +78,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|demo/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

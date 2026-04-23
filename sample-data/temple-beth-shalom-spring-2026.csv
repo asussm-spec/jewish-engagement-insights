@@ -1,0 +1,36 @@
+email,first_name,last_name,membership_type,zip_code,child_1_name,child_1_dob,child_2_name,child_2_dob
+sarah.cohen42@example.com,Sarah,Cohen,Family,02138,Emma,2018-03-15,Noah,2020-07-22
+david.levy7@example.com,David,Levy,Individual,02139,,,,
+rachel.shapiro12@example.com,Rachel,Shapiro,Family,02144,Lily,2019-11-03,,,
+michael.friedman5@example.com,Michael,Friedman,Family,02140,Jack,2017-06-28,Ava,2019-09-14
+rebecca.katz18@example.com,Rebecca,Katz,Senior/Retired,02135,,,,
+daniel.rosen33@example.com,Daniel,Rosen,Family,02138,Zoe,2020-01-10,,,
+leah.schwartz9@example.com,Leah,Schwartz,Family,02139,Ben,2016-04-07,Maya,2018-12-19
+joshua.goldman61@example.com,Joshua,Goldman,Individual,02144,,,,
+hannah.klein22@example.com,Hannah,Klein,Family,02140,Sophie,2021-05-30,,,
+benjamin.stern15@example.com,Benjamin,Stern,Family,02138,Eli,2017-08-12,Noa,2020-02-25
+miriam.berger44@example.com,Miriam,Berger,Young Professional,02143,,,,
+samuel.silverman8@example.com,Samuel,Silverman,Family,02134,Max,2019-07-16,,,
+esther.greenberg71@example.com,Esther,Greenberg,Senior/Retired,02155,,,,
+aaron.kaplan29@example.com,Aaron,Kaplan,Family,02148,Talia,2018-10-04,Jonah,2021-03-18
+naomi.epstein3@example.com,Naomi,Epstein,Family,02138,Ella,2020-06-22,,,
+eli.bloom56@example.com,Eli,Bloom,Individual,02139,,,,
+abigail.stein40@example.com,Abigail,Stein,Family,02140,Caleb,2016-12-01,Ruby,2019-04-28
+noah.adler19@example.com,Noah,Adler,Young Professional,02143,,,,
+ruth.blum87@example.com,Ruth,Blum,Senior/Retired,02135,,,,
+isaac.frank14@example.com,Isaac,Frank,Family,02144,Olive,2021-09-07,,,
+maya.gross62@example.com,Maya,Gross,Family,02138,Levi,2018-05-20,Shira,2020-11-13
+ethan.kohn37@example.com,Ethan,Kohn,Individual,02139,,,,
+sophie.segal25@example.com,Sophie,Segal,Family,02140,Asher,2019-02-14,,,
+jacob.feldman48@example.com,Jacob,Feldman,Family,02148,Dina,2017-09-30,Leo,2020-08-05
+emma.horowitz11@example.com,Emma,Horowitz,Young Professional,02144,,,,
+liam.lieberman66@example.com,Liam,Lieberman,Family,02134,Ariel,2020-04-17,,,
+ava.marcus53@example.com,Ava,Marcus,Family,02138,Simon,2018-01-26,Ilana,2021-06-09
+oliver.peretz2@example.com,Oliver,Peretz,Individual,02155,,,,
+mia.rubin78@example.com,Mia,Rubin,Family,02143,Micah,2019-12-08,,,
+alexander.schneider30@example.com,Alexander,Schneider,Family,02140,Tamar,2017-03-14,Seth,2020-10-21
+jessica.bloom99@example.com,Jessica,Bloom,Family,02144,Orly,2021-02-18,,,
+david.horowitz17@example.com,David,Horowitz,Individual,02138,,,,
+rachel.stern84@example.com,Rachel,Stern,Family,02143,Yael,2018-08-05,,,
+noah.friedman46@example.com,Noah,Friedman,Family,02139,Rivka,2020-09-12,Oren,2022-01-30
+abigail.schwartz73@example.com,Abigail,Schwartz,Family,02140,Eliana,2019-05-25,,,

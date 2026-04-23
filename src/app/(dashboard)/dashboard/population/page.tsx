@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -7,8 +8,33 @@ import {
   DsButton,
 } from "@/components/layout/page-primitives";
 import { Plus, Users } from "lucide-react";
+import { PopulationProfile } from "@/components/population/population-profile";
+import { TEMPLE_BETH_SHALOM_POPULATION } from "@/lib/mock-population-data";
 
 export default async function PopulationPage() {
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get("demo_mode")?.value === "true";
+
+  if (isDemo) {
+    const data = TEMPLE_BETH_SHALOM_POPULATION;
+    return (
+      <div>
+        <PageHead
+          breadcrumb={[{ label: "Workspace" }, { label: "Population" }]}
+          title="Population"
+          subtitle={`${data.totalMembers.toLocaleString()} members · ${data.totalHouseholds} households at ${data.orgName}.`}
+          actions={
+            <DsButton href="/dashboard/population/new" variant="primary" size="sm">
+              <Plus className="h-3.5 w-3.5" />
+              Upload new member data
+            </DsButton>
+          }
+        />
+        <PopulationProfile data={data} />
+      </div>
+    );
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

@@ -1,3 +1,4 @@
+import { cookies } from "next/headers";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
@@ -14,31 +15,44 @@ import {
 import { CalendarDays, Upload, Users, Plus } from "lucide-react";
 
 export default async function DashboardPage() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get("demo_mode")?.value === "true";
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*, organizations(*)")
-    .eq("id", user.id)
-    .single();
+  let firstName = "Sarah";
+  let orgName = "Temple Beth Shalom";
+  let eventCount: number | null = 12;
+  let populationCount: number | null = 412;
 
-  if (!profile?.organization_id) redirect("/dashboard/onboarding");
+  if (!isDemo) {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) redirect("/login");
 
-  const { count: eventCount } = await supabase
-    .from("events")
-    .select("*", { count: "exact", head: true })
-    .eq("organization_id", profile.organization_id);
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*, organizations(*)")
+      .eq("id", user.id)
+      .single();
 
-  const { count: populationCount } = await supabase
-    .from("participants")
-    .select("*", { count: "exact", head: true })
-    .eq("organization_id", profile.organization_id);
+    if (!profile?.organization_id) redirect("/dashboard/onboarding");
 
-  const firstName = profile.full_name?.split(" ")[0] || "there";
+    const { count: eventCountResult } = await supabase
+      .from("events")
+      .select("*", { count: "exact", head: true })
+      .eq("organization_id", profile.organization_id);
+
+    const { count: populationCountResult } = await supabase
+      .from("participants")
+      .select("*", { count: "exact", head: true })
+      .eq("organization_id", profile.organization_id);
+
+    firstName = profile.full_name?.split(" ")[0] || "there";
+    orgName = profile.organizations?.name || "";
+    eventCount = eventCountResult;
+    populationCount = populationCountResult;
+  }
 
   return (
     <div>
@@ -49,8 +63,8 @@ export default async function DashboardPage() {
         ]}
         title={`Good morning, ${firstName}.`}
         subtitle={
-          profile.organizations?.name
-            ? `Here's what's been happening at ${profile.organizations.name}.`
+          orgName
+            ? `Here's what's been happening at ${orgName}.`
             : "Here's what's been happening."
         }
         actions={
