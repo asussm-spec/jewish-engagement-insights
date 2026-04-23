@@ -9,7 +9,9 @@ import {
 } from "@/components/layout/page-primitives";
 import { Plus, Users } from "lucide-react";
 import { PopulationProfile } from "@/components/population/population-profile";
+import { PopulationComparison } from "@/components/population/population-comparison";
 import { TEMPLE_BETH_SHALOM_POPULATION } from "@/lib/mock-population-data";
+import { SYNAGOGUE_BENCHMARKS } from "@/lib/mock-community-data";
 
 export default async function PopulationPage() {
   const cookieStore = await cookies();
@@ -31,6 +33,10 @@ export default async function PopulationPage() {
           }
         />
         <PopulationProfile data={data} />
+        <PopulationComparison
+          myOrgId="tbs"
+          myOrg={SYNAGOGUE_BENCHMARKS.find((s) => s.id === "tbs")!}
+        />
       </div>
     );
   }
