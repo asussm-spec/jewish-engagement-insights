@@ -1,43 +1,57 @@
 import { cookies } from "next/headers";
+import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import {
   PageHead,
   Panel,
   DsButton,
 } from "@/components/layout/page-primitives";
 import { Plus, Users } from "lucide-react";
-import { PopulationProfile } from "@/components/population/population-profile";
-import { PopulationComparison } from "@/components/population/population-comparison";
-import { TEMPLE_BETH_SHALOM_POPULATION } from "@/lib/mock-population-data";
-import { SYNAGOGUE_BENCHMARKS } from "@/lib/mock-community-data";
+import { PopulationDashboard } from "@/components/population/population-dashboard";
+import {
+  getPopulationByOrgName,
+  getPopulationForOrg,
+  type AggregatedPopulation,
+} from "@/lib/population-aggregator";
+
+const DEMO_ORG_NAME = "Greater Boston JCC";
+
+const getCachedDemo = unstable_cache(
+  async () => {
+    const service = createServiceClient();
+    return getPopulationByOrgName(service, DEMO_ORG_NAME);
+  },
+  ["population-demo-v4"],
+  { revalidate: 300, tags: ["population"] }
+);
+
+const getCachedReal = unstable_cache(
+  async (orgId: string) => {
+    const service = createServiceClient();
+    return getPopulationForOrg(service, orgId);
+  },
+  ["population-real-v4"],
+  { revalidate: 300, tags: ["population"] }
+);
 
 export default async function PopulationPage() {
   const cookieStore = await cookies();
   const isDemo = cookieStore.get("demo_mode")?.value === "true";
 
   if (isDemo) {
-    const data = TEMPLE_BETH_SHALOM_POPULATION;
+    const result = await getCachedDemo();
+    if (!result) {
+      return <NoOrgState orgName={DEMO_ORG_NAME} />;
+    }
     return (
-      <div>
-        <PageHead
-          breadcrumb={[{ label: "Workspace" }, { label: "Population" }]}
-          title="Population"
-          subtitle={`${data.totalMembers.toLocaleString()} members · ${data.totalHouseholds} households at ${data.orgName}.`}
-          actions={
-            <DsButton href="/dashboard/population/new" variant="primary" size="sm">
-              <Plus className="h-3.5 w-3.5" />
-              Upload new member data
-            </DsButton>
-          }
-        />
-        <PopulationProfile data={data} />
-        <PopulationComparison
-          myOrgId="tbs"
-          myOrg={SYNAGOGUE_BENCHMARKS.find((s) => s.id === "tbs")!}
-        />
-      </div>
+      <PopulationView
+        orgName={result.orgName}
+        total={result.segments.all.totalMembers}
+        segments={result.segments}
+        crossOrg={result.crossOrg}
+      />
     );
   }
 
@@ -55,169 +69,122 @@ export default async function PopulationPage() {
 
   if (!profile?.organization_id) redirect("/dashboard/onboarding");
 
-  const { data: uploads } = await supabase
-    .from("population_uploads")
-    .select("*")
-    .eq("organization_id", profile.organization_id)
-    .order("created_at", { ascending: false });
+  const result = await getCachedReal(profile.organization_id);
+  if (result.segments.all.totalMembers === 0) {
+    return <EmptyState />;
+  }
 
+  return (
+    <PopulationView
+      orgName={result.orgName}
+      total={result.segments.all.totalMembers}
+      segments={result.segments}
+      crossOrg={result.crossOrg}
+    />
+  );
+}
+
+function PopulationView({
+  orgName,
+  total,
+  segments,
+  crossOrg,
+}: {
+  orgName: string;
+  total: number;
+  segments: AggregatedPopulation["segments"];
+  crossOrg: AggregatedPopulation["crossOrg"];
+}) {
   return (
     <div>
       <PageHead
         breadcrumb={[{ label: "Workspace" }, { label: "Population" }]}
         title="Population"
-        subtitle="Upload and analyze your membership and contact data."
+        subtitle={`${total.toLocaleString()} people the org interacts with at ${orgName}.`}
         actions={
           <DsButton href="/dashboard/population/new" variant="primary" size="sm">
             <Plus className="h-3.5 w-3.5" />
-            Upload population data
+            Add population data
           </DsButton>
         }
       />
-
-      {!uploads || uploads.length === 0 ? (
-        <Panel>
-          <div
-            className="text-center"
-            style={{ padding: "48px 40px", borderStyle: "dashed" }}
-          >
-            <div
-              className="mx-auto mb-4 flex h-12 w-12 items-center justify-center"
-              style={{ background: "var(--paper-100)", borderRadius: 10 }}
-            >
-              <Users className="h-5 w-5" style={{ color: "var(--ink-600)" }} />
-            </div>
-            <div
-              className="font-serif"
-              style={{
-                fontWeight: 500,
-                fontSize: 20,
-                color: "var(--ink-800)",
-                letterSpacing: "-0.01em",
-                marginBottom: 6,
-              }}
-            >
-              No population data yet.
-            </div>
-            <p
-              className="mx-auto"
-              style={{
-                fontSize: 14,
-                color: "var(--stone-500)",
-                maxWidth: 480,
-                lineHeight: 1.55,
-              }}
-            >
-              Upload a membership list or contact spreadsheet to start building
-              your population profile. People who already exist from event
-              uploads will be enriched with the new data.
-            </p>
-          </div>
-        </Panel>
-      ) : (
-        <Panel>
-          <table
-            className="w-full"
-            style={{ borderCollapse: "collapse", fontSize: 13 }}
-          >
-            <thead>
-              <tr>
-                <Th>Upload</Th>
-                <Th>Date uploaded</Th>
-                <Th className="text-right">Members</Th>
-              </tr>
-            </thead>
-            <tbody>
-              {uploads.map((upload) => (
-                <tr
-                  key={upload.id}
-                  style={{ borderBottom: "1px solid var(--ds-border)" }}
-                  className="hover:bg-[color:var(--paper-100)] transition-colors"
-                >
-                  <Td>
-                    <Link
-                      href={`/dashboard/population/${upload.id}`}
-                      className="no-underline"
-                      style={{ color: "var(--ink-800)", fontWeight: 500 }}
-                    >
-                      {upload.name}
-                    </Link>
-                    {upload.description && (
-                      <p
-                        className="truncate max-w-sm"
-                        style={{
-                          fontSize: 12,
-                          color: "var(--ds-fg-muted)",
-                          marginTop: 2,
-                        }}
-                      >
-                        {upload.description}
-                      </p>
-                    )}
-                  </Td>
-                  <Td style={{ color: "var(--ds-fg-muted)" }}>
-                    {new Date(upload.created_at).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
-                  </Td>
-                  <Td
-                    style={{
-                      textAlign: "right",
-                      fontVariantNumeric: "tabular-nums",
-                    }}
-                  >
-                    {upload.member_count || 0}
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </Panel>
-      )}
+      <PopulationDashboard
+        segments={segments}
+        crossOrg={crossOrg}
+        orgName={orgName}
+        defaultSegment="all"
+      />
     </div>
   );
 }
 
-function Th({ children, className }: { children: React.ReactNode; className?: string }) {
+function EmptyState() {
   return (
-    <th
-      className={className}
-      style={{
-        textAlign: "left",
-        fontSize: 11,
-        fontWeight: 600,
-        textTransform: "uppercase",
-        letterSpacing: "0.1em",
-        color: "var(--ds-fg-muted)",
-        padding: "10px 16px",
-        borderBottom: "1px solid var(--ds-border)",
-        background: "var(--paper-50)",
-      }}
-    >
-      {children}
-    </th>
+    <div>
+      <PageHead
+        breadcrumb={[{ label: "Workspace" }, { label: "Population" }]}
+        title="Population"
+        subtitle="Everyone your organization interacts with — members and event attendees, deduplicated."
+        actions={
+          <DsButton href="/dashboard/population/new" variant="primary" size="sm">
+            <Plus className="h-3.5 w-3.5" />
+            Add population data
+          </DsButton>
+        }
+      />
+      <Panel>
+        <div className="text-center" style={{ padding: "48px 40px", borderStyle: "dashed" }}>
+          <div
+            className="mx-auto mb-4 flex h-12 w-12 items-center justify-center"
+            style={{ background: "var(--paper-100)", borderRadius: 10 }}
+          >
+            <Users className="h-5 w-5" style={{ color: "var(--ink-600)" }} />
+          </div>
+          <div
+            className="font-serif"
+            style={{
+              fontWeight: 500,
+              fontSize: 20,
+              color: "var(--ink-800)",
+              letterSpacing: "-0.01em",
+              marginBottom: 6,
+            }}
+          >
+            No population data yet.
+          </div>
+          <p
+            className="mx-auto"
+            style={{
+              fontSize: 14,
+              color: "var(--stone-500)",
+              maxWidth: 520,
+              lineHeight: 1.55,
+            }}
+          >
+            Add a membership list or upload event attendance to start building
+            your unified population profile.
+          </p>
+        </div>
+      </Panel>
+    </div>
   );
 }
 
-function Td({
-  children,
-  style,
-}: {
-  children: React.ReactNode;
-  style?: React.CSSProperties;
-}) {
+function NoOrgState({ orgName }: { orgName: string }) {
   return (
-    <td
-      style={{
-        padding: "14px 16px",
-        verticalAlign: "middle",
-        color: "var(--ink-700)",
-        ...style,
-      }}
-    >
-      {children}
-    </td>
+    <div>
+      <PageHead
+        breadcrumb={[{ label: "Workspace" }, { label: "Population" }]}
+        title="Population"
+        subtitle={`Demo org "${orgName}" not found in the database.`}
+      />
+      <Panel>
+        <div style={{ padding: "32px" }}>
+          <p style={{ color: "var(--ink-700)", fontSize: 14 }}>
+            Run <code>npx tsx scripts/seed-jcc.ts</code> to seed the demo data.
+          </p>
+        </div>
+      </Panel>
+    </div>
   );
 }
