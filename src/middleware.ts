@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+const DEMO_COOKIE = "demo_mode";
+
 export async function middleware(request: NextRequest) {
   // Skip auth middleware if Supabase is not configured
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
@@ -39,11 +41,30 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // Allow demo mode to bypass auth
-  const isDemo = request.nextUrl.searchParams.get("demo") === "true" ||
-    request.cookies.get("demo_mode")?.value === "true";
+  // ── Demo cookie management ──
+  // Real auth always wins: if the user is logged in, drop any stale demo cookie.
+  // Honor `?demo=false` as an explicit exit.
+  // Otherwise, set the cookie when `?demo=true` is passed and there's no user.
+  const demoQuery = request.nextUrl.searchParams.get("demo");
+  const hasDemoCookie = request.cookies.get(DEMO_COOKIE)?.value === "true";
 
-  // Protect dashboard routes — redirect to login if not authenticated
+  const shouldClearDemo =
+    Boolean(user) || demoQuery === "false";
+  const shouldSetDemo =
+    !user && demoQuery === "true" && !hasDemoCookie;
+
+  if (shouldClearDemo && hasDemoCookie) {
+    request.cookies.delete(DEMO_COOKIE);
+    supabaseResponse.cookies.set(DEMO_COOKIE, "", { path: "/", maxAge: 0 });
+  }
+
+  // Effective demo state for this request after the clear above
+  const isDemo =
+    !user &&
+    (demoQuery === "true" ||
+      (hasDemoCookie && !shouldClearDemo));
+
+  // Protect dashboard routes — redirect to login if neither authed nor in demo
   if (
     !user &&
     !isDemo &&
@@ -54,9 +75,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Set demo cookie so subsequent navigations stay in demo mode
-  if (isDemo && !request.cookies.get("demo_mode")) {
-    supabaseResponse.cookies.set("demo_mode", "true", {
+  if (shouldSetDemo) {
+    supabaseResponse.cookies.set(DEMO_COOKIE, "true", {
       path: "/",
       maxAge: 60 * 60 * 4, // 4 hours
     });

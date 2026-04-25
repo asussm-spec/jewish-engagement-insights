@@ -29,35 +29,39 @@ export default async function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const isDemo = cookieStore.get("demo_mode")?.value === "true";
-
-  if (isDemo) {
-    return (
-      <DashboardShell user={DEMO_USER} profile={DEMO_PROFILE}>
-        {children}
-      </DashboardShell>
-    );
-  }
-
+  // Real auth wins over demo mode. Middleware clears the demo cookie when
+  // a real user is logged in, so by the time we get here we can trust:
+  // if there's a Supabase user, that's who we are; otherwise the demo cookie
+  // (when set) means render the mock org.
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect("/login");
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*, organizations(*)")
+      .eq("id", user.id)
+      .single();
+
+    return (
+      <DashboardShell user={user} profile={profile} isDemo={false}>
+        {children}
+      </DashboardShell>
+    );
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*, organizations(*)")
-    .eq("id", user.id)
-    .single();
+  const cookieStore = await cookies();
+  const isDemo = cookieStore.get("demo_mode")?.value === "true";
 
-  return (
-    <DashboardShell user={user} profile={profile}>
-      {children}
-    </DashboardShell>
-  );
+  if (isDemo) {
+    return (
+      <DashboardShell user={DEMO_USER} profile={DEMO_PROFILE} isDemo>
+        {children}
+      </DashboardShell>
+    );
+  }
+
+  redirect("/login");
 }

@@ -73,10 +73,12 @@ export function DashboardShell({
   user,
   profile,
   children,
+  isDemo = false,
 }: {
   user: User;
   profile: Profile | null;
   children: React.ReactNode;
+  isDemo?: boolean;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -143,6 +145,25 @@ export function DashboardShell({
             )}
           </div>
         </div>
+
+        {isDemo && (
+          <Link
+            href="/?demo=false"
+            className="no-underline mx-2 mb-3 flex items-center justify-between gap-2 rounded-md px-2.5 py-2 transition-colors"
+            style={{
+              background: "var(--ochre-50, #faf2dc)",
+              border: "1px solid var(--ochre-300, #e0c082)",
+              fontSize: 11,
+            }}
+          >
+            <span style={{ color: "var(--ink-800)", fontWeight: 600 }}>
+              Demo mode
+            </span>
+            <span style={{ color: "var(--ochre-700, #8a6418)", fontWeight: 500 }}>
+              Exit →
+            </span>
+          </Link>
+        )}
 
         <div
           className="font-semibold uppercase px-2 pt-3 pb-1.5"
