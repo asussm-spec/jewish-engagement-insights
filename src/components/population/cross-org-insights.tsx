@@ -21,6 +21,10 @@ interface Props {
   data: CrossOrgData;
   segmentLabel: string;
   segmentTotal: number;
+  /** People with ≥1 cross-org affiliation in our data */
+  coverageCount: number;
+  /** % of segment we have any cross-org data for */
+  coveragePct: number;
   thisOrgName: string;
 }
 
@@ -57,6 +61,8 @@ export function CrossOrgInsightsView({
   data,
   segmentLabel,
   segmentTotal,
+  coverageCount,
+  coveragePct,
   thisOrgName,
 }: Props) {
   const segmentLower = segmentLabel.toLowerCase();
@@ -81,22 +87,47 @@ export function CrossOrgInsightsView({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-baseline gap-3">
-        <h2
-          className="font-serif"
+      <div>
+        <div className="flex items-baseline gap-3">
+          <h2
+            className="font-serif"
+            style={{
+              fontWeight: 500,
+              fontSize: 22,
+              color: "var(--ink-800)",
+              letterSpacing: "-0.01em",
+            }}
+          >
+            Cross-organizational footprint
+          </h2>
+          <p style={{ fontSize: 13, color: "var(--ds-fg-muted)" }}>
+            How {segmentLower} interact across the broader Jewish ecosystem ·{" "}
+            {data.totalEcosystemOrgs} other orgs in scope
+          </p>
+        </div>
+        <div
           style={{
-            fontWeight: 500,
-            fontSize: 22,
-            color: "var(--ink-800)",
-            letterSpacing: "-0.01em",
+            marginTop: 10,
+            padding: "10px 14px",
+            background: "var(--paper-100)",
+            border: "1px solid var(--ds-border)",
+            borderRadius: 8,
+            fontSize: 13,
+            color: "var(--ink-700)",
+            lineHeight: 1.5,
           }}
         >
-          Cross-organizational footprint
-        </h2>
-        <p style={{ fontSize: 13, color: "var(--ds-fg-muted)" }}>
-          How {segmentLower} interact across the broader Jewish ecosystem ·{" "}
-          {data.totalEcosystemOrgs} other orgs in scope
-        </p>
+          <span style={{ fontWeight: 600 }}>
+            Cross-org coverage: {coverageCount.toLocaleString()} of{" "}
+            {segmentTotal.toLocaleString()} ({coveragePct}%)
+          </span>
+          {" — "}
+          <span style={{ color: "var(--stone-500)" }}>
+            we have at least one other-org affiliation for these {segmentLower}.
+            The remaining {(segmentTotal - coverageCount).toLocaleString()} may
+            belong to other orgs we don&apos;t see yet.
+          </span>
+        </div>
       </div>
 
       {/* ── 3 per-org-type panels ── */}

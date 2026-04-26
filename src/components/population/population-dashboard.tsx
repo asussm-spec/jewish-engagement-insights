@@ -19,15 +19,14 @@ interface Props {
 }
 
 const SEGMENT_LABELS: Record<PopulationSegment, string> = {
-  all: "All people",
-  members: "Members",
+  all: "Everyone you serve",
+  members: "Your members",
   non_members: "Non-members",
 };
 
-const SEGMENT_ORDER: PopulationSegment[] = ["all", "members", "non_members"];
-
-// Demo placeholder until "new cross-org joins last quarter" gets a real source.
-const NEW_CROSS_ORG_JOINS_DEMO = 24;
+// Surfaced in the toggle; non_members is still computed but not shown
+// (implicit as Everyone − Members).
+const SEGMENT_ORDER: PopulationSegment[] = ["all", "members"];
 
 export function PopulationDashboard({
   segments,
@@ -43,23 +42,21 @@ export function PopulationDashboard({
 
   const segmentTotal = data?.totalMembers ?? 0;
 
-  // Derive "active at 2+ orgs" and "exclusive" from engagementBreadth.
-  const exclusive =
-    crossOrgData?.engagementBreadth.find((b) => b.bucket === "1 (only this org)")?.count ?? 0;
-  const activeAtMultiple =
+  // "With cross-org data" = anyone we have at least one other-org affiliation
+  // for. Computed from engagementBreadth as everyone NOT in the "1 (only this
+  // org)" bucket. The "1 (only this org)" group genuinely could mean people
+  // we just don't have data on yet, so we explicitly frame this as coverage
+  // rather than as "exclusive".
+  const withCrossOrgData =
     (crossOrgData?.engagementBreadth ?? [])
       .filter((b) => b.bucket !== "1 (only this org)")
       .reduce((s, b) => s + b.count, 0);
 
-  const exclusivePct = segmentTotal > 0 ? Math.round((exclusive / segmentTotal) * 100) : 0;
-  const multiplePct = segmentTotal > 0 ? Math.round((activeAtMultiple / segmentTotal) * 100) : 0;
+  const coveragePct = segmentTotal > 0 ? Math.round((withCrossOrgData / segmentTotal) * 100) : 0;
+  const distinctOtherOrgs = crossOrgData?.totalEcosystemOrgs ?? 0;
 
   const memberLabel =
-    segment === "members"
-      ? "members"
-      : segment === "non_members"
-      ? "non-members"
-      : "people";
+    segment === "members" ? "your members" : "people";
 
   return (
     <div className="space-y-6">
@@ -104,26 +101,21 @@ export function PopulationDashboard({
 
       {/* ── Top KPIs: cross-org headlines ── */}
       {crossOrgData && (
-        <StatGrid cols={4}>
+        <StatGrid cols={3}>
           <StatCard
             label="Total"
             value={segmentTotal.toLocaleString()}
             note={`${segmentLabel} in scope`}
           />
           <StatCard
-            label="Active at 2+ orgs"
-            value={activeAtMultiple.toLocaleString()}
-            note={`${multiplePct}% of ${memberLabel}`}
+            label="With cross-org data"
+            value={withCrossOrgData.toLocaleString()}
+            note={`${coveragePct}% of ${memberLabel} have ≥1 other-org affiliation`}
           />
           <StatCard
-            label="Exclusive to your org"
-            value={exclusive.toLocaleString()}
-            note={`${exclusivePct}% of ${memberLabel}`}
-          />
-          <StatCard
-            label="New cross-org joins"
-            value={NEW_CROSS_ORG_JOINS_DEMO.toLocaleString()}
-            note="Joined a 2nd org last quarter (demo)"
+            label="Other orgs in view"
+            value={distinctOtherOrgs.toLocaleString()}
+            note={`Distinct orgs we see your ${memberLabel} engaging with`}
           />
         </StatGrid>
       )}
@@ -134,6 +126,8 @@ export function PopulationDashboard({
           data={crossOrgData}
           segmentLabel={segmentLabel}
           segmentTotal={segmentTotal}
+          coverageCount={withCrossOrgData}
+          coveragePct={coveragePct}
           thisOrgName={orgName}
         />
       )}

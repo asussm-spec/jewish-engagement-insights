@@ -163,6 +163,7 @@ const orgs = [
     subtype: null,
     email_domains: ["bostonjcc.org"],
   },
+  // ── Day schools ────────────────────────────────
   {
     name: "Solomon Schechter Day School",
     org_type: "day_school" as const,
@@ -170,10 +171,71 @@ const orgs = [
     email_domains: ["ssds.org"],
   },
   {
+    name: "Rashi School",
+    org_type: "day_school" as const,
+    subtype: "reform",
+    email_domains: ["rashi.org"],
+  },
+  {
+    name: "Maimonides School",
+    org_type: "day_school" as const,
+    subtype: "orthodox",
+    email_domains: ["maimonides.org"],
+  },
+  {
+    name: "Gann Academy",
+    org_type: "day_school" as const,
+    subtype: "pluralistic",
+    email_domains: ["gannacademy.org"],
+  },
+  {
+    name: "JCDS Boston",
+    org_type: "day_school" as const,
+    subtype: "pluralistic",
+    email_domains: ["jcdsboston.org"],
+  },
+  // ── Camps ──────────────────────────────────────
+  {
     name: "Camp Ramah New England",
     org_type: "camp" as const,
-    subtype: null,
+    subtype: "conservative",
     email_domains: ["campramahne.org"],
+  },
+  {
+    name: "URJ Eisner Camp",
+    org_type: "camp" as const,
+    subtype: "reform",
+    email_domains: ["eisnercamp.org"],
+  },
+  {
+    name: "Camp Yavneh",
+    org_type: "camp" as const,
+    subtype: "pluralistic",
+    email_domains: ["campyavneh.org"],
+  },
+  {
+    name: "Camp Tevya",
+    org_type: "camp" as const,
+    subtype: "independent",
+    email_domains: ["camptevya.org"],
+  },
+  {
+    name: "Camp Pembroke",
+    org_type: "camp" as const,
+    subtype: "independent",
+    email_domains: ["camppembroke.org"],
+  },
+  {
+    name: "Camp JRF",
+    org_type: "camp" as const,
+    subtype: "reconstructionist",
+    email_domains: ["campjrf.org"],
+  },
+  {
+    name: "Capital Camps",
+    org_type: "camp" as const,
+    subtype: "pluralistic",
+    email_domains: ["capitalcamps.org"],
   },
 ];
 
@@ -195,6 +257,14 @@ async function main() {
 
     if (existing) {
       orgIds.push(existing.id);
+      // Backfill subtype on existing orgs (older seeds may have left it null)
+      if (org.subtype !== null) {
+        await supabase
+          .from("organizations")
+          .update({ subtype: org.subtype })
+          .eq("id", existing.id)
+          .is("subtype", null);
+      }
       console.log(`  ✓ ${org.name} (existing)`);
     } else {
       const { data, error } = await supabase

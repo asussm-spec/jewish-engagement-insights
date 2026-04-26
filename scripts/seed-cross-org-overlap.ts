@@ -116,8 +116,30 @@ async function main() {
   const jcc = orgs.find((o) => o.name === JCC_NAME);
   if (!jcc) throw new Error("JCC not found");
   const synagogues = orgs.filter((o) => o.org_type === "synagogue");
-  const camp = orgs.find((o) => o.name === "Camp Ramah New England");
-  const school = orgs.find((o) => o.name === "Solomon Schechter Day School");
+  const allDaySchools = orgs.filter((o) => o.org_type === "day_school");
+  const allCamps = orgs.filter((o) => o.org_type === "camp");
+
+  // Realistic distribution weights for day schools and camps
+  // (sums per-list don't need to be normalized; weighted round-robin handles it).
+  const DAY_SCHOOL_WEIGHTS: Record<string, number> = {
+    "Solomon Schechter Day School": 35,
+    "Rashi School": 25,
+    "Maimonides School": 15,
+    "Gann Academy": 15,
+    "JCDS Boston": 10,
+  };
+  const CAMP_WEIGHTS: Record<string, number> = {
+    "Camp Ramah New England": 25,
+    "URJ Eisner Camp": 18,
+    "Camp Yavneh": 18,
+    "Camp Tevya": 12,
+    "Camp Pembroke": 10,
+    "Camp JRF": 9,
+    "Capital Camps": 8,
+  };
+
+  const daySchools = allDaySchools.filter((o) => DAY_SCHOOL_WEIGHTS[o.name] !== undefined);
+  const camps = allCamps.filter((o) => CAMP_WEIGHTS[o.name] !== undefined);
 
   // JCC member identities (parents only — children are synthetic email-prefixed and we don't want to sprinkle them across orgs)
   const { data: jccUploads } = await sb
@@ -177,71 +199,108 @@ async function main() {
   console.log(`Synagogue overlap rows: ${synRows.length}`);
   await batchUpsertMembers(synRows);
 
-  // ── 2. Schechter day school (~8%) ────────────────────────
-  const schoolUploadId = school
-    ? await ensureUpload(
-        school.id,
-        seedUserId,
-        "Student & family roster — 2025–26",
-        "Families of currently enrolled students."
-      )
-    : null;
-  const schoolEligible = shuffle(adults).slice(0, Math.floor(adults.length * 0.08));
-  if (schoolUploadId) {
-    await batchUpsertMembers(
-      schoolEligible.map((person_id) => ({ population_id: schoolUploadId, person_id }))
-    );
-    console.log(`Schechter overlap rows: ${schoolEligible.length}`);
+  // ── 2. Day schools (~12% of adults, spread across 5 schools) ──
+  // Family of one school → 1 day-school affiliation. Distribution by weights.
+  const schoolEligible = shuffle(adults).slice(0, Math.floor(adults.length * 0.12));
+  const personSchoolOrg = new Map<string, string>(); // for downstream
+  if (daySchools.length > 0) {
+    const schoolUploadIdByOrg = new Map<string, string>();
+    for (const s of daySchools) {
+      schoolUploadIdByOrg.set(
+        s.id,
+        await ensureUpload(
+          s.id,
+          seedUserId,
+          `Student & family roster — 2025–26`,
+          `Families of currently enrolled students at ${s.name}.`
+        )
+      );
+    }
+    // Build a weighted picking sequence
+    const schoolPool: typeof daySchools = [];
+    for (const s of daySchools) {
+      const w = DAY_SCHOOL_WEIGHTS[s.name] ?? 1;
+      for (let k = 0; k < w; k++) schoolPool.push(s);
+    }
+    const shuffledPool = shuffle(schoolPool);
+    const schoolRows: { population_id: string; person_id: string }[] = [];
+    let si = 0;
+    for (const personId of schoolEligible) {
+      const s = shuffledPool[si % shuffledPool.length];
+      const upId = schoolUploadIdByOrg.get(s.id);
+      if (upId) {
+        schoolRows.push({ population_id: upId, person_id: personId });
+        personSchoolOrg.set(personId, s.id);
+      }
+      si++;
+    }
+    await batchUpsertMembers(schoolRows);
+    console.log(`Day school overlap rows: ${schoolRows.length} across ${daySchools.length} schools`);
   }
 
-  // ── 3. Camp Ramah (~6%) ──────────────────────────────────
-  const campUploadId = camp
-    ? await ensureUpload(
-        camp.id,
-        seedUserId,
-        "Camper family roster — 2026",
-        "Families of currently enrolled campers."
-      )
-    : null;
-  const campEligible = shuffle(adults).slice(0, Math.floor(adults.length * 0.06));
-  if (campUploadId) {
-    await batchUpsertMembers(
-      campEligible.map((person_id) => ({ population_id: campUploadId, person_id }))
-    );
-    console.log(`Camp Ramah overlap rows: ${campEligible.length}`);
+  // ── 3. Camps (~14% of adults, spread across 7 camps) ─────────
+  const campEligible = shuffle(adults).slice(0, Math.floor(adults.length * 0.14));
+  const personCampOrg = new Map<string, string>();
+  if (camps.length > 0) {
+    const campUploadIdByOrg = new Map<string, string>();
+    for (const c of camps) {
+      campUploadIdByOrg.set(
+        c.id,
+        await ensureUpload(
+          c.id,
+          seedUserId,
+          `Camper family roster — 2026`,
+          `Families of currently enrolled campers at ${c.name}.`
+        )
+      );
+    }
+    const campPool: typeof camps = [];
+    for (const c of camps) {
+      const w = CAMP_WEIGHTS[c.name] ?? 1;
+      for (let k = 0; k < w; k++) campPool.push(c);
+    }
+    const shuffledPool = shuffle(campPool);
+    const campRows: { population_id: string; person_id: string }[] = [];
+    let ci = 0;
+    for (const personId of campEligible) {
+      const c = shuffledPool[ci % shuffledPool.length];
+      const upId = campUploadIdByOrg.get(c.id);
+      if (upId) {
+        campRows.push({ population_id: upId, person_id: personId });
+        personCampOrg.set(personId, c.id);
+      }
+      ci++;
+    }
+    await batchUpsertMembers(campRows);
+    console.log(`Camp overlap rows: ${campRows.length} across ${camps.length} camps`);
   }
 
   // ── 4. Cross-org event attendance ────────────────────────
-  // For each org with events (TBS, Camp Ramah, Schechter), sample ~30% of
-  // the cross-affiliated members and add them as attendees for 1–3 random
-  // events at that org.
-  const eventOrgs = [
-    { name: "Temple Beth Shalom", members: synRows.filter((r) => personSynOrg.get(r.person_id)).map((r) => r.person_id).filter((p) => personSynOrg.get(p) === orgs.find((o) => o.name === "Temple Beth Shalom")?.id) },
-    { name: "Solomon Schechter Day School", members: schoolEligible },
-    { name: "Camp Ramah New England", members: campEligible },
-  ];
-
-  for (const { name, members } of eventOrgs) {
-    const org = orgs.find((o) => o.name === name);
-    if (!org) continue;
+  // For TBS (the only synagogue with seeded events), sample ~50% of members
+  // and add 1–3 attendance rows. Skip orgs without any seeded events.
+  const tbs = orgs.find((o) => o.name === "Temple Beth Shalom");
+  if (tbs) {
+    const tbsMembers = synRows
+      .filter((r) => personSynOrg.get(r.person_id) === tbs.id)
+      .map((r) => r.person_id);
     const { data: events } = await sb
       .from("events")
       .select("id")
-      .eq("organization_id", org.id);
-    if (!events || events.length === 0) continue;
-
-    const sampleSize = Math.floor(members.length * 0.5);
-    const sampledMembers = shuffle(members).slice(0, sampleSize);
-    const rows: { event_id: string; person_id: string }[] = [];
-    for (const personId of sampledMembers) {
-      const numEvents = 1 + Math.floor(Math.random() * 3);
-      const pickedEvents = shuffle(events).slice(0, numEvents);
-      for (const ev of pickedEvents) {
-        rows.push({ event_id: ev.id as string, person_id: personId });
+      .eq("organization_id", tbs.id);
+    if (events && events.length > 0 && tbsMembers.length > 0) {
+      const sampleSize = Math.floor(tbsMembers.length * 0.5);
+      const sampledMembers = shuffle(tbsMembers).slice(0, sampleSize);
+      const rows: { event_id: string; person_id: string }[] = [];
+      for (const personId of sampledMembers) {
+        const numEvents = 1 + Math.floor(Math.random() * 3);
+        const pickedEvents = shuffle(events).slice(0, numEvents);
+        for (const ev of pickedEvents) {
+          rows.push({ event_id: ev.id as string, person_id: personId });
+        }
       }
+      await batchUpsertAttendees(rows);
+      console.log(`Temple Beth Shalom: ${sampledMembers.length} members → ${rows.length} attendance rows`);
     }
-    await batchUpsertAttendees(rows);
-    console.log(`${name}: ${sampledMembers.length} members → ${rows.length} attendance rows`);
   }
 
   // ── 5. Update people_profiles.member_org_ids[] ───────────
@@ -257,17 +316,13 @@ async function main() {
     if (!personOrgs.has(r.person_id)) personOrgs.set(r.person_id, new Set([jcc.id]));
     personOrgs.get(r.person_id)!.add(orgId);
   }
-  for (const personId of schoolEligible) {
-    if (school) {
-      if (!personOrgs.has(personId)) personOrgs.set(personId, new Set([jcc.id]));
-      personOrgs.get(personId)!.add(school.id);
-    }
+  for (const [personId, schoolOrgId] of personSchoolOrg) {
+    if (!personOrgs.has(personId)) personOrgs.set(personId, new Set([jcc.id]));
+    personOrgs.get(personId)!.add(schoolOrgId);
   }
-  for (const personId of campEligible) {
-    if (camp) {
-      if (!personOrgs.has(personId)) personOrgs.set(personId, new Set([jcc.id]));
-      personOrgs.get(personId)!.add(camp.id);
-    }
+  for (const [personId, campOrgId] of personCampOrg) {
+    if (!personOrgs.has(personId)) personOrgs.set(personId, new Set([jcc.id]));
+    personOrgs.get(personId)!.add(campOrgId);
   }
 
   let profileUpdates = 0;
@@ -289,8 +344,8 @@ async function main() {
 
   console.log(`\n✅ Cross-org overlap seed complete.`);
   console.log(`   ${synRows.length} synagogue affiliations`);
-  console.log(`   ${schoolEligible.length} Schechter affiliations`);
-  console.log(`   ${campEligible.length} Camp Ramah affiliations`);
+  console.log(`   ${personSchoolOrg.size} day-school affiliations across ${daySchools.length} schools`);
+  console.log(`   ${personCampOrg.size} camp affiliations across ${camps.length} camps`);
   console.log(`   ${profileUpdates} people_profiles updated with member_org_ids`);
 }
 
