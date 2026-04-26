@@ -33,25 +33,11 @@ export const SYNAGOGUE_BENCHMARKS: SynagogueBenchmark[] = [
     programParticipation: { "Shabbat Services": 268, "Holiday Events": 340, "Family Programs": 195, "Adult Learning": 142, "Social / Community": 156, "Youth Programs": 108, "Volunteer / Tikkun Olam": 98 },
   },
   {
-    id: "cks", name: "Congregation Kehillat Shalom", denomination: "Conservative", sizeCategory: "Mid-size",
-    totalMembers: 385, totalHouseholds: 192,
-    ageBuckets: { "0–5": 22, "6–12": 38, "13–17": 28, "18–25": 15, "26–35": 32, "36–45": 68, "46–55": 62, "56–65": 52, "66–75": 42, "76+": 26 },
-    engagementRate: 62, percentWithChildren: 44, avgChildrenPerFamily: 2.3,
-    programParticipation: { "Shabbat Services": 142, "Holiday Events": 168, "Family Programs": 82, "Adult Learning": 65, "Social / Community": 58, "Youth Programs": 45, "Volunteer / Tikkun Olam": 38 },
-  },
-  {
     id: "be", name: "Temple Beth El", denomination: "Reform", sizeCategory: "Mid-size",
     totalMembers: 412, totalHouseholds: 205,
     ageBuckets: { "0–5": 28, "6–12": 42, "13–17": 32, "18–25": 18, "26–35": 38, "36–45": 72, "46–55": 65, "56–65": 54, "66–75": 38, "76+": 25 },
     engagementRate: 49, percentWithChildren: 46, avgChildrenPerFamily: 1.9,
     programParticipation: { "Shabbat Services": 98, "Holiday Events": 152, "Family Programs": 88, "Adult Learning": 52, "Social / Community": 72, "Youth Programs": 42, "Volunteer / Tikkun Olam": 35 },
-  },
-  {
-    id: "mt", name: "Mishkan Tefila", denomination: "Conservative", sizeCategory: "Large",
-    totalMembers: 680, totalHouseholds: 328,
-    ageBuckets: { "0–5": 38, "6–12": 58, "13–17": 48, "18–25": 28, "26–35": 52, "36–45": 118, "46–55": 108, "56–65": 92, "66–75": 82, "76+": 56 },
-    engagementRate: 55, percentWithChildren: 42, avgChildrenPerFamily: 2.2,
-    programParticipation: { "Shabbat Services": 198, "Holiday Events": 262, "Family Programs": 128, "Adult Learning": 108, "Social / Community": 92, "Youth Programs": 68, "Volunteer / Tikkun Olam": 58 },
   },
   {
     id: "ys", name: "Young Israel of Sharon", denomination: "Orthodox", sizeCategory: "Mid-size",

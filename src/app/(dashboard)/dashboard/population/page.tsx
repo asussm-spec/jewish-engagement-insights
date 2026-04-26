@@ -5,13 +5,23 @@ import Link from "next/link";
 import {
   PageHead,
   Panel,
+  StatGrid,
+  StatCard,
   DsButton,
 } from "@/components/layout/page-primitives";
 import { Plus, Users } from "lucide-react";
 import { PopulationProfile } from "@/components/population/population-profile";
 import { PopulationComparison } from "@/components/population/population-comparison";
+import { CrossOrgBreakdown } from "@/components/population/cross-org-breakdown";
+import { CollapsibleSection } from "@/components/layout/collapsible-section";
 import { TEMPLE_BETH_SHALOM_POPULATION } from "@/lib/mock-population-data";
 import { SYNAGOGUE_BENCHMARKS } from "@/lib/mock-community-data";
+import {
+  TBS_SYNAGOGUE_BREAKDOWN,
+  TBS_DAY_SCHOOL_BREAKDOWN,
+  TBS_CAMP_BREAKDOWN,
+  TBS_HEADLINE,
+} from "@/lib/mock-cross-org-breakdown";
 
 export default async function PopulationPage() {
   const cookieStore = await cookies();
@@ -19,12 +29,19 @@ export default async function PopulationPage() {
 
   if (isDemo) {
     const data = TEMPLE_BETH_SHALOM_POPULATION;
+    const headline = TBS_HEADLINE;
+    const exclusivePct = Math.round(
+      (headline.membersExclusive / headline.totalMembers) * 100
+    );
+    const cross2plusPct = Math.round(
+      (headline.membersAt2PlusOrgs / headline.totalMembers) * 100
+    );
     return (
       <div>
         <PageHead
           breadcrumb={[{ label: "Workspace" }, { label: "Population" }]}
           title="Population"
-          subtitle={`${data.totalMembers.toLocaleString()} members · ${data.totalHouseholds} households at ${data.orgName}.`}
+          subtitle={`${data.totalMembers.toLocaleString()} members at ${data.orgName}.`}
           actions={
             <DsButton href="/dashboard/population/new" variant="primary" size="sm">
               <Plus className="h-3.5 w-3.5" />
@@ -32,11 +49,55 @@ export default async function PopulationPage() {
             </DsButton>
           }
         />
-        <PopulationProfile data={data} />
-        <PopulationComparison
-          myOrgId="tbs"
-          myOrg={SYNAGOGUE_BENCHMARKS.find((s) => s.id === "tbs")!}
+
+        {/* ── Top KPIs: cross-org headline numbers ── */}
+        <StatGrid cols={4}>
+          <StatCard
+            label="Total members"
+            value={headline.totalMembers.toLocaleString()}
+            note="Your roster"
+          />
+          <StatCard
+            label="Active at 2+ orgs"
+            value={headline.membersAt2PlusOrgs.toLocaleString()}
+            note={`${cross2plusPct}% of your members`}
+          />
+          <StatCard
+            label="Exclusive to your org"
+            value={headline.membersExclusive.toLocaleString()}
+            note={`${exclusivePct}% of your members`}
+          />
+          <StatCard
+            label="New cross-org joins"
+            value={headline.newCrossOrgJoinsLastQuarter.toLocaleString()}
+            note="Members who joined a 2nd org last quarter"
+          />
+        </StatGrid>
+
+        {/* ── Cross-org breakdown: per org type ── */}
+        <CrossOrgBreakdown
+          synagogues={TBS_SYNAGOGUE_BREAKDOWN}
+          daySchools={TBS_DAY_SCHOOL_BREAKDOWN}
+          camps={TBS_CAMP_BREAKDOWN}
         />
+
+        {/* ── Peer comparison (also cross-org) ── */}
+        <div className="mt-8">
+          <PopulationComparison
+            myOrgId="tbs"
+            myOrg={SYNAGOGUE_BENCHMARKS.find((s) => s.id === "tbs")!}
+          />
+        </div>
+
+        {/* ── Internal demographics (collapsed) ── */}
+        <div className="mt-8">
+          <CollapsibleSection
+            title="Internal demographics"
+            sub="Age, membership types, programs, geography, family profile, gender, completeness — the kinds of cuts most CRMs already give you."
+          >
+            <PopulationProfile data={data} hideKpis />
+          </CollapsibleSection>
+        </div>
       </div>
     );
   }
