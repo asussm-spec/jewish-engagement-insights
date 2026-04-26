@@ -229,6 +229,12 @@ async function main() {
     let orgId: string;
     if (existingOrg) {
       orgId = existingOrg.id;
+      // Backfill subtype on existing orgs (pre-existing seeds may have left it null)
+      await supabase
+        .from("organizations")
+        .update({ subtype: synConfig.subtype })
+        .eq("id", orgId)
+        .is("subtype", null);
       console.log("  ✓ Org exists");
     } else {
       const { data: newOrg, error: orgError } = await supabase

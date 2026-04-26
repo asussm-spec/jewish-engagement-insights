@@ -80,7 +80,9 @@ function deltaLabel(changes: Record<string, QuarterlyChange>, name: string): str
 }
 
 function QuarterBadge({ date }: { date: string }) {
+  if (!date) return null;
   const d = new Date(date);
+  if (Number.isNaN(d.getTime())) return null;
   const label = d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
   return (
     <span className="text-[10px] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
@@ -94,6 +96,16 @@ export function PopulationProfile({ data }: Props) {
   const selectedPeriod = data.comparisonPeriods.find((p) => p.key === periodKey) ?? data.comparisonPeriods[0];
   const qc = selectedPeriod?.changes ?? {};
   const snapshotDate = selectedPeriod?.snapshotDate ?? "";
+  const entityLabel = data.entityLabel ?? "Members";
+  const entityLabelLower = entityLabel.toLowerCase();
+  const showMembershipTypes = data.membershipTypes.length > 0;
+  const showHouseholds = data.totalHouseholds > 0;
+  const showGender = data.genderSplit.length > 0;
+  const showTenure = data.joinYearBuckets.length > 0;
+  const showCompleteness = data.dataCompleteness.length > 0;
+  const showProgramParticipation = data.programParticipation.length > 0;
+  const row4Cols = [showTenure, showGender, showCompleteness].filter(Boolean).length;
+  const row4Class = row4Cols === 3 ? "md:grid-cols-3" : row4Cols === 2 ? "md:grid-cols-2" : "";
 
   // Enrich bar data with delta labels for Recharts LabelList
   const ageBucketsWithDelta = data.ageBuckets.map((b) => ({
@@ -136,43 +148,49 @@ export function PopulationProfile({ data }: Props) {
       )}
 
       {/* KPI summary row */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className={`grid gap-4 ${showHouseholds ? "md:grid-cols-4" : "md:grid-cols-3"}`}>
         <KpiCard
           icon={<Users className="h-5 w-5" />}
-          label="Total Members"
+          label={`Total ${entityLabel}`}
           value={data.totalMembers.toLocaleString()}
           change={qc.totalMembers}
         />
-        <KpiCard
-          icon={<Home className="h-5 w-5" />}
-          label="Households"
-          value={data.totalHouseholds.toLocaleString()}
-          change={qc.totalHouseholds}
-        />
+        {showHouseholds && (
+          <KpiCard
+            icon={<Home className="h-5 w-5" />}
+            label="Households"
+            value={data.totalHouseholds.toLocaleString()}
+            change={qc.totalHouseholds}
+          />
+        )}
         <KpiCard
           icon={<Baby className="h-5 w-5" />}
           label="Children"
           value={data.familyStats.totalChildren.toLocaleString()}
-          sub={`${data.familyStats.percentWithChildren}% of households have children`}
+          sub={
+            showHouseholds
+              ? `${data.familyStats.percentWithChildren}% of households have children`
+              : `${data.familyStats.percentWithChildren}% of ${entityLabelLower} have children`
+          }
           change={qc.totalChildren}
         />
         <KpiCard
           icon={<TrendingUp className="h-5 w-5" />}
           label="Engaged (1+ event)"
-          value={`${Math.round(((data.engagementTiers[0].value + data.engagementTiers[1].value + data.engagementTiers[2].value) / data.totalMembers) * 100)}%`}
-          sub={`${data.engagementTiers[0].value + data.engagementTiers[1].value + data.engagementTiers[2].value} of ${data.totalMembers} members`}
+          value={`${Math.round((data.engagementTiers.filter((t) => t.name !== "Members Only").reduce((s, t) => s + t.value, 0) / data.totalMembers) * 100)}%`}
+          sub={`${data.engagementTiers.filter((t) => t.name !== "Members Only").reduce((s, t) => s + t.value, 0)} of ${data.totalMembers} ${entityLabelLower}`}
         />
       </div>
 
       {/* Row 1: Age distribution + Membership types */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className={`grid gap-6 ${showMembershipTypes ? "md:grid-cols-2" : ""}`}>
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base">Age Distribution</CardTitle>
                 <CardDescription>
-                  All members by age bracket (n={data.ageBuckets.reduce((s, b) => s + b.value, 0)})
+                  All {entityLabelLower} by age bracket (n={data.ageBuckets.reduce((s, b) => s + b.value, 0)})
                 </CardDescription>
               </div>
               <QuarterBadge date={snapshotDate} />
@@ -229,12 +247,17 @@ export function PopulationProfile({ data }: Props) {
           </CardContent>
         </Card>
 
+        {showMembershipTypes && (
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base">Membership Types</CardTitle>
-                <CardDescription>{data.totalHouseholds} households</CardDescription>
+                <CardDescription>
+                  {showHouseholds
+                    ? `${data.totalHouseholds.toLocaleString()} households`
+                    : `${data.membershipTypes.reduce((s, m) => s + m.value, 0).toLocaleString()} ${entityLabelLower}`}
+                </CardDescription>
               </div>
               <QuarterBadge date={snapshotDate} />
             </div>
@@ -290,17 +313,19 @@ export function PopulationProfile({ data }: Props) {
             </ChartContainer>
           </CardContent>
         </Card>
+        )}
       </div>
 
       {/* Row 2: Program Participation + Engagement tiers */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className={`grid gap-6 ${showProgramParticipation ? "md:grid-cols-2" : ""}`}>
+        {showProgramParticipation && (
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <div>
                 <CardTitle className="text-base">Program Participation</CardTitle>
                 <CardDescription>
-                  Members who attended 1+ event by program type (past 12 months)
+                  {entityLabel} who attended 1+ event by program type (past 12 months)
                 </CardDescription>
               </div>
               <QuarterBadge date={snapshotDate} />
@@ -351,6 +376,7 @@ export function PopulationProfile({ data }: Props) {
             </ChartContainer>
           </CardContent>
         </Card>
+        )}
 
         <Card>
           <CardHeader className="pb-2">
@@ -428,6 +454,7 @@ export function PopulationProfile({ data }: Props) {
                 </div>
               </div>
 
+              {data.familyStats.totalChildren > 0 && data.familyStats.childAgeBuckets.length > 0 && (
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Children by age group</p>
                 <div className="space-y-1.5">
@@ -455,6 +482,7 @@ export function PopulationProfile({ data }: Props) {
                   })}
                 </div>
               </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -468,7 +496,9 @@ export function PopulationProfile({ data }: Props) {
               </div>
               <QuarterBadge date={snapshotDate} />
             </div>
-            <CardDescription>Top zip codes by household count</CardDescription>
+            <CardDescription>
+              Top zip codes by {showHouseholds ? "household" : entityLabelLower.replace(/s$/, "")} count
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ChartContainer
@@ -482,10 +512,11 @@ export function PopulationProfile({ data }: Props) {
                   content={
                     <ChartTooltipContent
                       formatter={(value, _name, item) => {
-                        const pct = Math.round(((value as number) / data.totalHouseholds) * 100);
+                        const denom = showHouseholds ? data.totalHouseholds : data.totalMembers;
+                        const pct = Math.round(((value as number) / denom) * 100);
                         const change = qc[item.payload.name];
                         const changeStr = change ? ` (${change.delta > 0 ? "+" : ""}${change.delta} vs last quarter)` : "";
-                        return `${value} households (${pct}%)${changeStr}`;
+                        return `${value} ${showHouseholds ? "households" : entityLabelLower} (${pct}%)${changeStr}`;
                       }}
                     />
                   }
@@ -518,11 +549,13 @@ export function PopulationProfile({ data }: Props) {
       </div>
 
       {/* Row 4: Join year + Gender + Data completeness */}
-      <div className="grid gap-6 md:grid-cols-3">
+      {row4Cols > 0 && (
+      <div className={`grid gap-6 ${row4Class}`}>
+        {showTenure && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Membership Tenure</CardTitle>
-            <CardDescription>When households joined</CardDescription>
+            <CardDescription>When {entityLabelLower} joined</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 pt-1">
@@ -545,12 +578,16 @@ export function PopulationProfile({ data }: Props) {
             </div>
           </CardContent>
         </Card>
+        )}
 
+        {showGender && (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Gender</CardTitle>
             <CardDescription>
-              {Math.round(data.genderSplit.reduce((s, g) => s + g.value, 0) / data.totalMembers * 100)}% coverage
+              {data.totalMembers > 0
+                ? Math.round((data.genderSplit.reduce((s, g) => s + g.value, 0) / data.totalMembers) * 100)
+                : 0}% coverage
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -579,14 +616,16 @@ export function PopulationProfile({ data }: Props) {
             </div>
           </CardContent>
         </Card>
+        )}
 
+        {showCompleteness && (
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center gap-2">
               <Database className="h-4 w-4 text-muted-foreground" />
               <CardTitle className="text-base">Data Completeness</CardTitle>
             </div>
-            <CardDescription>Coverage by field across all members</CardDescription>
+            <CardDescription>Coverage by field across all {entityLabelLower}</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2 pt-1">
@@ -609,7 +648,9 @@ export function PopulationProfile({ data }: Props) {
             </div>
           </CardContent>
         </Card>
+        )}
       </div>
+      )}
     </div>
   );
 }

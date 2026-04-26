@@ -5,7 +5,7 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 
 const DEMO_USER = {
   id: "demo-user-id",
-  email: "demo@templebethshalom.org",
+  email: "demo@gbjcc.org",
   app_metadata: {},
   user_metadata: { full_name: "Demo User" },
   aud: "authenticated",
@@ -19,8 +19,8 @@ const DEMO_PROFILE = {
   organization_id: "demo-org-id",
   organizations: {
     id: "demo-org-id",
-    name: "Temple Beth Shalom",
-    org_type: "synagogue",
+    name: "Greater Boston JCC",
+    org_type: "jcc",
   },
 };
 
