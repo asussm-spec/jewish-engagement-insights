@@ -14,7 +14,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
-import { Building2, GraduationCap, Tent, Network, Users } from "lucide-react";
+import { Building2, GraduationCap, Tent, Network, Users, ListOrdered } from "lucide-react";
 import type { CrossOrgInsights as CrossOrgData } from "@/lib/population-aggregator";
 
 interface Props {
@@ -43,6 +43,17 @@ const SUBTYPE_LABELS: Record<string, string> = {
   reconstructionist: "Reconstructionist",
   pluralistic: "Pluralistic",
   independent: "Independent",
+};
+
+const ORG_TYPE_BADGE_LABELS: Record<string, string> = {
+  synagogue: "Synagogue",
+  day_school: "Day school",
+  camp: "Camp",
+  jcc: "JCC",
+  federation: "Federation",
+  youth_org: "Youth org",
+  social_service: "Social service",
+  other: "Other",
 };
 
 interface OrgEntry {
@@ -130,6 +141,115 @@ export function CrossOrgInsightsView({
         </div>
       </div>
 
+      {/* ── High-level: footprint distribution + top overlapping orgs ── */}
+      <div className="grid gap-5 md:grid-cols-2">
+        {/* Engagement breadth */}
+        <Card>
+          <CardHeader className="pb-2">
+            <div className="flex items-center gap-2">
+              <Network className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-base">How wide is their footprint?</CardTitle>
+            </div>
+            <CardDescription>
+              Distinct orgs each {segmentLower.replace(/s$/, "")} touches via membership or events
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3 pt-1">
+              {data.engagementBreadth.map((row) => (
+                <div key={row.bucket}>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-medium">{row.bucket}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm tabular-nums font-medium">
+                        {row.count.toLocaleString()}
+                      </span>
+                      <span className="text-xs text-muted-foreground tabular-nums w-9 text-right">
+                        {row.pctOfSegment}%
+                      </span>
+                    </div>
+                  </div>
+                  <div className="h-3 bg-muted rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: `${row.pctOfSegment}%`,
+                        backgroundColor: BREADTH_COLORS[row.bucket] ?? "#888",
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Top overlapping orgs (flat ranked list across all org types) */}
+        {data.topOverlappingOrgs.length > 0 && (
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center gap-2">
+                <ListOrdered className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-base">Top overlapping orgs</CardTitle>
+              </div>
+              <CardDescription>
+                Other orgs your {segmentLower} most often belong to or attend
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div>
+                {data.topOverlappingOrgs.slice(0, 10).map((org, i) => (
+                  <div
+                    key={org.orgId}
+                    className="flex items-baseline gap-2"
+                    style={{
+                      padding: "6px 0",
+                      borderTop: i === 0 ? "none" : "1px solid var(--ds-border)",
+                    }}
+                  >
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        fontSize: 13,
+                        color: "var(--ink-800)",
+                        fontWeight: 500,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {org.name}
+                      <span
+                        style={{
+                          fontSize: 11,
+                          fontWeight: 400,
+                          color: "var(--stone-500)",
+                          marginLeft: 6,
+                        }}
+                      >
+                        · {ORG_TYPE_BADGE_LABELS[org.orgType] ?? org.orgType}
+                      </span>
+                    </div>
+                    <div
+                      className="tabular-nums"
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "var(--ink-700)",
+                        flex: "0 0 auto",
+                      }}
+                    >
+                      {org.count}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+
       {/* ── 3 per-org-type panels ── */}
       <div className="grid gap-5 md:grid-cols-3">
         <OrgTypePanel
@@ -157,47 +277,6 @@ export function CrossOrgInsightsView({
           groupingLabel="By category"
         />
       </div>
-
-      {/* ── Engagement breadth ── */}
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex items-center gap-2">
-            <Network className="h-4 w-4 text-muted-foreground" />
-            <CardTitle className="text-base">How wide is their footprint?</CardTitle>
-          </div>
-          <CardDescription>
-            Distinct orgs each {segmentLower.replace(/s$/, "")} touches via membership or events
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3 pt-1">
-            {data.engagementBreadth.map((row) => (
-              <div key={row.bucket}>
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium">{row.bucket}</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm tabular-nums font-medium">
-                      {row.count.toLocaleString()}
-                    </span>
-                    <span className="text-xs text-muted-foreground tabular-nums w-9 text-right">
-                      {row.pctOfSegment}%
-                    </span>
-                  </div>
-                </div>
-                <div className="h-3 bg-muted rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full"
-                    style={{
-                      width: `${row.pctOfSegment}%`,
-                      backgroundColor: BREADTH_COLORS[row.bucket] ?? "#888",
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
 
       {/* ── Program share ── */}
       {data.programShare.length > 0 && (
