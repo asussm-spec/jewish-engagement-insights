@@ -56,8 +56,6 @@ const CHILD_AGE_COLORS = ["#1e2d6f", "#c8922a", "#4a7c6f", "#c05746", "#6b5fa0"]
 
 interface Props {
   data: PopulationSummary;
-  /** Hide the top KPI row (e.g. when the page already shows a cross-org KPI row above) */
-  hideKpis?: boolean;
 }
 
 function DeltaBadge({ change, className = "" }: { change?: QuarterlyChange; className?: string }) {
@@ -91,7 +89,7 @@ function QuarterBadge({ date }: { date: string }) {
   );
 }
 
-export function PopulationProfile({ data, hideKpis = false }: Props) {
+export function PopulationProfile({ data }: Props) {
   const [periodKey, setPeriodKey] = useState(data.comparisonPeriods[0]?.key ?? "");
   const selectedPeriod = data.comparisonPeriods.find((p) => p.key === periodKey) ?? data.comparisonPeriods[0];
   const qc = selectedPeriod?.changes ?? {};
@@ -138,35 +136,33 @@ export function PopulationProfile({ data, hideKpis = false }: Props) {
       )}
 
       {/* KPI summary row */}
-      {!hideKpis && (
-        <div className="grid gap-4 md:grid-cols-4">
-          <KpiCard
-            icon={<Users className="h-5 w-5" />}
-            label="Total Members"
-            value={data.totalMembers.toLocaleString()}
-            change={qc.totalMembers}
-          />
-          <KpiCard
-            icon={<Home className="h-5 w-5" />}
-            label="Households"
-            value={data.totalHouseholds.toLocaleString()}
-            change={qc.totalHouseholds}
-          />
-          <KpiCard
-            icon={<Baby className="h-5 w-5" />}
-            label="Children"
-            value={data.familyStats.totalChildren.toLocaleString()}
-            sub={`${data.familyStats.percentWithChildren}% of households have children`}
-            change={qc.totalChildren}
-          />
-          <KpiCard
-            icon={<TrendingUp className="h-5 w-5" />}
-            label="Engaged (1+ event)"
-            value={`${Math.round(((data.engagementTiers[0].value + data.engagementTiers[1].value + data.engagementTiers[2].value) / data.totalMembers) * 100)}%`}
-            sub={`${data.engagementTiers[0].value + data.engagementTiers[1].value + data.engagementTiers[2].value} of ${data.totalMembers} members`}
-          />
-        </div>
-      )}
+      <div className="grid gap-4 md:grid-cols-4">
+        <KpiCard
+          icon={<Users className="h-5 w-5" />}
+          label="Total Members"
+          value={data.totalMembers.toLocaleString()}
+          change={qc.totalMembers}
+        />
+        <KpiCard
+          icon={<Home className="h-5 w-5" />}
+          label="Households"
+          value={data.totalHouseholds.toLocaleString()}
+          change={qc.totalHouseholds}
+        />
+        <KpiCard
+          icon={<Baby className="h-5 w-5" />}
+          label="Children"
+          value={data.familyStats.totalChildren.toLocaleString()}
+          sub={`${data.familyStats.percentWithChildren}% of households have children`}
+          change={qc.totalChildren}
+        />
+        <KpiCard
+          icon={<TrendingUp className="h-5 w-5" />}
+          label="Engaged (1+ event)"
+          value={`${Math.round(((data.engagementTiers[0].value + data.engagementTiers[1].value + data.engagementTiers[2].value) / data.totalMembers) * 100)}%`}
+          sub={`${data.engagementTiers[0].value + data.engagementTiers[1].value + data.engagementTiers[2].value} of ${data.totalMembers} members`}
+        />
+      </div>
 
       {/* Row 1: Age distribution + Membership types */}
       <div className="grid gap-6 md:grid-cols-2">
