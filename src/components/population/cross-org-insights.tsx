@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -13,25 +14,15 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
-import { Building2, Network, Users } from "lucide-react";
+import { Building2, GraduationCap, Tent, Network, Users } from "lucide-react";
 import type { CrossOrgInsights as CrossOrgData } from "@/lib/population-aggregator";
 
 interface Props {
   data: CrossOrgData;
   segmentLabel: string;
+  segmentTotal: number;
   thisOrgName: string;
 }
-
-const ORG_TYPE_COLORS: Record<string, string> = {
-  synagogue: "#1e2d6f",
-  day_school: "#c8922a",
-  camp: "#4a7c6f",
-  jcc: "#c05746",
-  federation: "#6b5fa0",
-  youth_org: "#2a3d8f",
-  social_service: "#8a8279",
-  other: "#dbb35c",
-};
 
 const BREADTH_COLORS: Record<string, string> = {
   "1 (only this org)": "#8a8279",
@@ -40,7 +31,34 @@ const BREADTH_COLORS: Record<string, string> = {
   "4+ orgs": "#1e2d6f",
 };
 
-export function CrossOrgInsightsView({ data, segmentLabel, thisOrgName }: Props) {
+const SUBTYPE_LABELS: Record<string, string> = {
+  reform: "Reform",
+  conservative: "Conservative",
+  orthodox: "Orthodox",
+  modern_orthodox: "Modern Orthodox",
+  reconstructionist: "Reconstructionist",
+  pluralistic: "Pluralistic",
+  independent: "Independent",
+};
+
+interface OrgEntry {
+  orgId: string;
+  name: string;
+  subtype: string | null;
+  count: number;
+}
+
+function labelForSubtype(subtype: string | null): string {
+  if (!subtype) return "Other";
+  return SUBTYPE_LABELS[subtype] ?? subtype;
+}
+
+export function CrossOrgInsightsView({
+  data,
+  segmentLabel,
+  segmentTotal,
+  thisOrgName,
+}: Props) {
   const segmentLower = segmentLabel.toLowerCase();
   const noData =
     data.affiliationByType.length === 0 &&
@@ -49,6 +67,16 @@ export function CrossOrgInsightsView({ data, segmentLabel, thisOrgName }: Props)
 
   if (noData) {
     return null;
+  }
+
+  const synagogues = data.topOverlappingOrgs.filter((o) => o.orgType === "synagogue");
+  const daySchools = data.topOverlappingOrgs.filter((o) => o.orgType === "day_school");
+  const camps = data.topOverlappingOrgs.filter((o) => o.orgType === "camp");
+
+  // Unique-person counts per type (from affiliationByType, which dedupes within type)
+  const uniqueByType = new Map<string, { count: number; pct: number }>();
+  for (const row of data.affiliationByType) {
+    uniqueByType.set(row.orgType, { count: row.count, pct: row.pctOfSegment });
   }
 
   return (
@@ -71,114 +99,76 @@ export function CrossOrgInsightsView({ data, segmentLabel, thisOrgName }: Props)
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Card 1: Cross-affiliation */}
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base">Where else do they belong?</CardTitle>
-            </div>
-            <CardDescription>
-              Share of {segmentLower} who also belong to or interact with another org type
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 pt-1">
-              {data.affiliationByType.map((row) => (
-                <div key={row.orgType}>
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-3 h-3 rounded-sm shrink-0"
-                        style={{ backgroundColor: ORG_TYPE_COLORS[row.orgType] ?? "#888" }}
-                      />
-                      <span className="text-sm font-medium">{row.label}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm tabular-nums font-medium">
-                        {row.count.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-muted-foreground tabular-nums w-9 text-right">
-                        {row.pctOfSegment}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="h-3 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${row.pctOfSegment}%`,
-                        backgroundColor: ORG_TYPE_COLORS[row.orgType] ?? "#888",
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-            {data.topOverlappingOrgs.length > 0 && (
-              <div className="mt-5 pt-4 border-t" style={{ borderColor: "var(--ds-border)" }}>
-                <p className="text-xs text-muted-foreground mb-2 font-medium">
-                  Top overlapping orgs
-                </p>
-                <div className="space-y-1">
-                  {data.topOverlappingOrgs.slice(0, 5).map((o) => (
-                    <div key={o.orgId} className="flex items-center justify-between text-xs">
-                      <span style={{ color: "var(--ink-700)" }}>{o.name}</span>
-                      <span className="tabular-nums" style={{ color: "var(--ds-fg-muted)" }}>
-                        {o.count.toLocaleString()}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Card 2: Engagement breadth */}
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center gap-2">
-              <Network className="h-4 w-4 text-muted-foreground" />
-              <CardTitle className="text-base">How wide is their footprint?</CardTitle>
-            </div>
-            <CardDescription>
-              Distinct orgs each {segmentLower.replace(/s$/, "")} touches via membership or events
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3 pt-1">
-              {data.engagementBreadth.map((row) => (
-                <div key={row.bucket}>
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-sm font-medium">{row.bucket}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm tabular-nums font-medium">
-                        {row.count.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-muted-foreground tabular-nums w-9 text-right">
-                        {row.pctOfSegment}%
-                      </span>
-                    </div>
-                  </div>
-                  <div className="h-3 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${row.pctOfSegment}%`,
-                        backgroundColor: BREADTH_COLORS[row.bucket] ?? "#888",
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+      {/* ── 3 per-org-type panels ── */}
+      <div className="grid gap-5 md:grid-cols-3">
+        <OrgTypePanel
+          title="Synagogues"
+          headingNoun="synagogue"
+          icon={<Building2 className="h-4 w-4" style={{ color: "var(--ink-600)" }} />}
+          orgs={synagogues}
+          uniquePeople={uniqueByType.get("synagogue")}
+          groupingLabel="By denomination"
+        />
+        <OrgTypePanel
+          title="Day Schools"
+          headingNoun="day school"
+          icon={<GraduationCap className="h-4 w-4" style={{ color: "var(--ink-600)" }} />}
+          orgs={daySchools}
+          uniquePeople={uniqueByType.get("day_school")}
+          groupingLabel="By type"
+        />
+        <OrgTypePanel
+          title="Camps"
+          headingNoun="Jewish camp"
+          icon={<Tent className="h-4 w-4" style={{ color: "var(--ink-600)" }} />}
+          orgs={camps}
+          uniquePeople={uniqueByType.get("camp")}
+          groupingLabel="By category"
+        />
       </div>
 
-      {/* Card 3: Program share */}
+      {/* ── Engagement breadth ── */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center gap-2">
+            <Network className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base">How wide is their footprint?</CardTitle>
+          </div>
+          <CardDescription>
+            Distinct orgs each {segmentLower.replace(/s$/, "")} touches via membership or events
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3 pt-1">
+            {data.engagementBreadth.map((row) => (
+              <div key={row.bucket}>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-sm font-medium">{row.bucket}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm tabular-nums font-medium">
+                      {row.count.toLocaleString()}
+                    </span>
+                    <span className="text-xs text-muted-foreground tabular-nums w-9 text-right">
+                      {row.pctOfSegment}%
+                    </span>
+                  </div>
+                </div>
+                <div className="h-3 bg-muted rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full"
+                    style={{
+                      width: `${row.pctOfSegment}%`,
+                      backgroundColor: BREADTH_COLORS[row.bucket] ?? "#888",
+                    }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* ── Program share ── */}
       {data.programShare.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
@@ -240,6 +230,266 @@ export function CrossOrgInsightsView({ data, segmentLabel, thisOrgName }: Props)
             </div>
           </CardContent>
         </Card>
+      )}
+    </div>
+  );
+}
+
+function OrgTypePanel({
+  title,
+  headingNoun,
+  icon,
+  orgs,
+  uniquePeople,
+  groupingLabel,
+}: {
+  title: string;
+  headingNoun: string;
+  icon: React.ReactNode;
+  orgs: OrgEntry[];
+  /** Unique people overlap (from affiliationByType) — dedupes within type */
+  uniquePeople?: { count: number; pct: number };
+  groupingLabel: string;
+}) {
+  const [showAll, setShowAll] = useState(false);
+
+  const totalPeople = uniquePeople?.count ?? 0;
+  const overallPct = uniquePeople?.pct ?? 0;
+
+  // Sum of per-org counts (overcounts people in multiple orgs of same type)
+  // Used only as the denominator for grouping percentages.
+  const totalOrgMentions = orgs.reduce((s, o) => s + o.count, 0);
+
+  // Group by subtype
+  const groupCounts = new Map<string, number>();
+  for (const o of orgs) {
+    const label = labelForSubtype(o.subtype);
+    groupCounts.set(label, (groupCounts.get(label) ?? 0) + o.count);
+  }
+  const groupings = Array.from(groupCounts.entries())
+    .map(([label, count]) => ({
+      label,
+      count,
+      pct: totalOrgMentions > 0 ? Math.round((count / totalOrgMentions) * 100) : 0,
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  const initialOrgsShown = 5;
+  const visibleOrgs = showAll ? orgs : orgs.slice(0, initialOrgsShown);
+  const hiddenCount = orgs.length - initialOrgsShown;
+
+  return (
+    <div
+      style={{
+        background: "var(--ds-bg-elevated)",
+        border: "1px solid var(--ds-border)",
+        borderRadius: 10,
+        padding: "20px 22px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 18,
+      }}
+    >
+      {/* ── Header ── */}
+      <div>
+        <div
+          className="flex items-center gap-2 font-semibold uppercase"
+          style={{
+            fontSize: 11,
+            letterSpacing: "0.12em",
+            color: "var(--ds-fg-muted)",
+            marginBottom: 10,
+          }}
+        >
+          {icon}
+          <span>{title}</span>
+        </div>
+        {orgs.length === 0 || totalPeople === 0 ? (
+          <div
+            style={{
+              fontSize: 13,
+              color: "var(--stone-500)",
+              lineHeight: 1.5,
+            }}
+          >
+            No {headingNoun} affiliations found yet for this segment.
+          </div>
+        ) : (
+          <>
+            <div
+              className="font-serif"
+              style={{
+                fontSize: 22,
+                fontWeight: 500,
+                lineHeight: 1.15,
+                color: "var(--ink-800)",
+                letterSpacing: "-0.01em",
+              }}
+            >
+              {totalPeople.toLocaleString()} of your {title === "Camps" ? "members' families" : "members"}
+            </div>
+            <div
+              style={{
+                fontSize: 13,
+                color: "var(--stone-500)",
+                marginTop: 4,
+                lineHeight: 1.45,
+              }}
+            >
+              also belong to a {headingNoun}
+              {" · "}
+              <span style={{ fontWeight: 600, color: "var(--ink-700)" }}>{overallPct}%</span>{" "}
+              of segment
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Groupings ── */}
+      {groupings.length > 0 && (
+        <div>
+          <div
+            className="font-semibold uppercase"
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.12em",
+              color: "var(--stone-400)",
+              marginBottom: 8,
+            }}
+          >
+            {groupingLabel}
+          </div>
+          <div className="space-y-2">
+            {groupings.map((g) => (
+              <div key={g.label} className="flex items-center gap-2.5">
+                <div
+                  style={{
+                    flex: "0 0 auto",
+                    fontSize: 12,
+                    color: "var(--ink-700)",
+                    minWidth: 130,
+                  }}
+                >
+                  {g.label}
+                </div>
+                <div
+                  style={{
+                    flex: 1,
+                    height: 8,
+                    background: "var(--paper-100)",
+                    borderRadius: 4,
+                    overflow: "hidden",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: `${g.pct}%`,
+                      height: "100%",
+                      background: "var(--ink-500)",
+                    }}
+                  />
+                </div>
+                <div
+                  className="tabular-nums"
+                  style={{
+                    flex: "0 0 auto",
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "var(--ink-800)",
+                    minWidth: 56,
+                    textAlign: "right",
+                  }}
+                >
+                  {g.count} ({g.pct}%)
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Top orgs ── */}
+      {orgs.length > 0 && (
+        <div>
+          <div
+            className="font-semibold uppercase"
+            style={{
+              fontSize: 10,
+              letterSpacing: "0.12em",
+              color: "var(--stone-400)",
+              marginBottom: 8,
+            }}
+          >
+            Top {title.toLowerCase()}
+          </div>
+          <div>
+            {visibleOrgs.map((org, i) => (
+              <div
+                key={org.orgId}
+                className="flex items-baseline gap-3"
+                style={{
+                  padding: "8px 0",
+                  borderTop: i === 0 ? "none" : "1px solid var(--ds-border)",
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: 13,
+                      color: "var(--ink-800)",
+                      fontWeight: 500,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {org.name}
+                  </div>
+                  {org.subtype && (
+                    <div
+                      style={{
+                        fontSize: 11,
+                        color: "var(--stone-500)",
+                        marginTop: 1,
+                      }}
+                    >
+                      {labelForSubtype(org.subtype)}
+                    </div>
+                  )}
+                </div>
+                <div
+                  className="tabular-nums"
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: "var(--ink-700)",
+                    flex: "0 0 auto",
+                  }}
+                >
+                  {org.count}
+                </div>
+              </div>
+            ))}
+          </div>
+          {hiddenCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              style={{
+                marginTop: 10,
+                fontSize: 12,
+                fontWeight: 500,
+                color: "var(--ochre-700, #8a6418)",
+                background: "transparent",
+                border: "none",
+                padding: 0,
+                cursor: "pointer",
+              }}
+            >
+              {showAll ? "Show fewer" : `Show all (${orgs.length}) →`}
+            </button>
+          )}
+        </div>
       )}
     </div>
   );

@@ -212,19 +212,14 @@ async function main() {
   }
 
   // ── 4. Cross-org event attendance ────────────────────────
-  // For each org with events (TBS, Camp Ramah, Schechter, Kehillat Shalom),
-  // sample ~30% of the cross-affiliated members and add them as attendees
-  // for 1–3 random events at that org.
+  // For each org with events (TBS, Camp Ramah, Schechter), sample ~30% of
+  // the cross-affiliated members and add them as attendees for 1–3 random
+  // events at that org.
   const eventOrgs = [
     { name: "Temple Beth Shalom", members: synRows.filter((r) => personSynOrg.get(r.person_id)).map((r) => r.person_id).filter((p) => personSynOrg.get(p) === orgs.find((o) => o.name === "Temple Beth Shalom")?.id) },
     { name: "Solomon Schechter Day School", members: schoolEligible },
     { name: "Camp Ramah New England", members: campEligible },
   ];
-
-  // Also for Kehillat Shalom (it has events but we didn't specifically target it). Sample some sync members assigned to it.
-  const kehilathId = orgs.find((o) => o.name === "Congregation Kehillat Shalom")?.id;
-  const kehilathMembers = synRows.filter((r) => personSynOrg.get(r.person_id) === kehilathId).map((r) => r.person_id);
-  eventOrgs.push({ name: "Congregation Kehillat Shalom", members: kehilathMembers });
 
   for (const { name, members } of eventOrgs) {
     const org = orgs.find((o) => o.name === name);

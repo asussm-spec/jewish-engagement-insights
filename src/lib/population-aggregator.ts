@@ -53,6 +53,7 @@ interface OrgRow {
   id: string;
   name: string;
   org_type: string;
+  subtype: string | null;
 }
 
 interface GlobalEvent {
@@ -74,6 +75,7 @@ export interface CrossOrgInsights {
     orgId: string;
     name: string;
     orgType: string;
+    subtype: string | null;
     count: number;
   }[];
   /** For each event_type, count of distinct people attending at this org vs. other orgs */
@@ -437,11 +439,11 @@ function computeCrossOrg(
         orgId,
         name: meta?.name ?? "Unknown",
         orgType: meta?.org_type ?? "other",
+        subtype: meta?.subtype ?? null,
         count: peopleSet.size,
       };
     })
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 8);
+    .sort((a, b) => b.count - a.count);
 
   // Program share by event_type — for each category, count distinct people
   // who attended at this org vs. at any other org.
@@ -631,11 +633,19 @@ export async function getPopulationForOrg(
   }
 
   // Cross-org data: fetch all orgs, all events, then all attendances for segment people.
+  // EXCLUDED_ORGS are seeded historically but no longer in scope (closed / not real).
+  // Runtime filter so the UI is clean before a re-seed lands.
+  const EXCLUDED_ORG_NAMES = new Set([
+    "Congregation Kehillat Shalom",
+    "Mishkan Tefila",
+  ]);
   const { data: allOrgsRows } = await supabase
     .from("organizations")
-    .select("id, name, org_type");
+    .select("id, name, org_type, subtype");
   const orgsById = new Map<string, OrgRow>(
-    (allOrgsRows ?? []).map((o) => [o.id as string, o as OrgRow])
+    (allOrgsRows ?? [])
+      .filter((o) => !EXCLUDED_ORG_NAMES.has(o.name as string))
+      .map((o) => [o.id as string, o as OrgRow])
   );
 
   const { data: allEventsRows } = await supabase

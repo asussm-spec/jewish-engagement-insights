@@ -158,12 +158,6 @@ const orgs = [
     email_domains: ["gmail.com"],
   },
   {
-    name: "Congregation Kehillat Shalom",
-    org_type: "synagogue" as const,
-    subtype: "conservative",
-    email_domains: ["kehillatshalom.org"],
-  },
-  {
     name: "Greater Boston JCC",
     org_type: "jcc" as const,
     subtype: null,
@@ -297,8 +291,8 @@ async function main() {
     // Add other attributes randomly
     if (Math.random() > 0.5) {
       attributes.synagogue_name = pick([
-        "Temple Beth Shalom", "Congregation Kehillat Shalom",
-        "Temple Israel", "Beth El", "Mishkan Tefila",
+        "Temple Beth Shalom", "Temple Israel", "Beth El",
+        "Temple Emanu-El", "Temple Sinai",
       ]);
       attributes.synagogue_member = "yes";
     }
