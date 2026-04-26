@@ -457,35 +457,36 @@ function OrgTypePanel({
             {visibleOrgs.map((org, i) => (
               <div
                 key={org.orgId}
-                className="flex items-baseline gap-3"
+                className="flex items-baseline gap-2"
                 style={{
-                  padding: "8px 0",
+                  padding: "6px 0",
                   borderTop: i === 0 ? "none" : "1px solid var(--ds-border)",
                 }}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div
-                    style={{
-                      fontSize: 13,
-                      color: "var(--ink-800)",
-                      fontWeight: 500,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {org.name}
-                  </div>
+                <div
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    fontSize: 13,
+                    color: "var(--ink-800)",
+                    fontWeight: 500,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {org.name}
                   {org.subtype && (
-                    <div
+                    <span
                       style={{
                         fontSize: 11,
+                        fontWeight: 400,
                         color: "var(--stone-500)",
-                        marginTop: 1,
+                        marginLeft: 6,
                       }}
                     >
-                      {labelForSubtype(org.subtype)}
-                    </div>
+                      · {labelForSubtype(org.subtype)}
+                    </span>
                   )}
                 </div>
                 <div
