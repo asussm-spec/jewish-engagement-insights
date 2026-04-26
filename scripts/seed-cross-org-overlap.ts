@@ -141,6 +141,31 @@ async function main() {
   const daySchools = allDaySchools.filter((o) => DAY_SCHOOL_WEIGHTS[o.name] !== undefined);
   const camps = allCamps.filter((o) => CAMP_WEIGHTS[o.name] !== undefined);
 
+  // Reset existing day-school + camp seed uploads so the re-seed redistributes
+  // affiliations across all currently-known orgs (otherwise old runs that only
+  // saw one school/camp leave a stuck dominant entry).
+  const seededUploadNames = [
+    "Student & family roster — 2025–26",
+    "Camper family roster — 2026",
+  ];
+  const resetOrgIds = [...daySchools, ...camps].map((o) => o.id);
+  if (resetOrgIds.length > 0) {
+    const { data: oldUploads } = await sb
+      .from("population_uploads")
+      .select("id")
+      .in("organization_id", resetOrgIds)
+      .in("name", seededUploadNames);
+    const oldUploadIds = (oldUploads ?? []).map((u) => u.id);
+    if (oldUploadIds.length > 0) {
+      const { error: delErr } = await sb
+        .from("population_members")
+        .delete()
+        .in("population_id", oldUploadIds);
+      if (delErr) console.error("  reset members error:", delErr.message);
+      console.log(`Reset day-school + camp memberships from ${oldUploadIds.length} prior uploads`);
+    }
+  }
+
   // JCC member identities (parents only — children are synthetic email-prefixed and we don't want to sprinkle them across orgs)
   const { data: jccUploads } = await sb
     .from("population_uploads")
