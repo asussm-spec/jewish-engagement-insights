@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/chart";
 import { Bar, BarChart, XAxis, YAxis, Cell } from "recharts";
 import type { AttendanceComparison } from "@/lib/event-analytics";
+import { TakeawayLead } from "./event-section";
 
 const COLORS = {
   thisEvent: "#1e2d6f",
@@ -56,6 +57,38 @@ interface Props {
   eventType: string;
 }
 
+// Turn the raw comparison into a one-line judgment: is this a good number?
+function buildAttendanceTakeaway(
+  a: AttendanceComparison,
+  typeLabel: string
+): { tone: "growth" | "below" | "neutral"; text: string } | null {
+  const type = typeLabel.toLowerCase();
+  // Need at least a couple of comparable community events to benchmark against
+  // (this event itself counts as one, so require more than one).
+  if (a.communityEventTypeCount < 2 || a.communityEventTypeAvg <= 0) {
+    if (a.orgEventTypeCount > 1 && a.orgEventTypeAvg > 0) {
+      const diff = Math.round(((a.thisEvent - a.orgEventTypeAvg) / a.orgEventTypeAvg) * 100);
+      if (diff >= 15)
+        return { tone: "growth", text: `${a.thisEvent} attended — ${diff}% above your own average of ${a.orgEventTypeAvg} for ${type} events. Not enough community data yet to benchmark against peers.` };
+      if (diff <= -15)
+        return { tone: "below", text: `${a.thisEvent} attended — ${Math.abs(diff)}% below your own average of ${a.orgEventTypeAvg} for ${type} events. Not enough community data yet to benchmark against peers.` };
+      return { tone: "neutral", text: `${a.thisEvent} attended — in line with your own average of ${a.orgEventTypeAvg} for ${type} events. Not enough community data yet to benchmark against peers.` };
+    }
+    return {
+      tone: "neutral",
+      text: `${a.thisEvent} attended. As more ${type} events are logged across the community, we'll be able to tell you whether that's a strong turnout.`,
+    };
+  }
+
+  const diff = Math.round(((a.thisEvent - a.communityEventTypeAvg) / a.communityEventTypeAvg) * 100);
+  const peers = `the community average of ${a.communityEventTypeAvg} across ${a.communityEventTypeCount} ${type} events`;
+  if (diff >= 15)
+    return { tone: "growth", text: `Strong turnout — ${a.thisEvent} attended, ${diff}% above ${peers}.` };
+  if (diff <= -15)
+    return { tone: "below", text: `Light turnout — ${a.thisEvent} attended, ${Math.abs(diff)}% below ${peers}.` };
+  return { tone: "neutral", text: `Solid turnout — ${a.thisEvent} attended, about in line with ${peers}.` };
+}
+
 export function EventAttendanceSection({
   attendance,
   orgName,
@@ -66,6 +99,7 @@ export function EventAttendanceSection({
   const typeLabel = eventTypeLabel.charAt(0).toUpperCase() + eventTypeLabel.slice(1);
   const orgLabel = `${orgName} ${typeLabel} (n=${attendance.orgEventTypeCount})`;
   const communityLabel = `All Communal ${typeLabel} (n=${attendance.communityEventTypeCount})`;
+  const takeaway = buildAttendanceTakeaway(attendance, typeLabel);
 
   // Org events dialog
   const [orgDialogOpen, setOrgDialogOpen] = useState(false);
@@ -196,6 +230,11 @@ export function EventAttendanceSection({
 
   return (
     <>
+      {takeaway && (
+        <div className="mb-4">
+          <TakeawayLead tone={takeaway.tone}>{takeaway.text}</TakeawayLead>
+        </div>
+      )}
       <Card>
         <CardContent className="pt-6">
           <ChartContainer config={chartConfig} className="h-[200px] w-full">

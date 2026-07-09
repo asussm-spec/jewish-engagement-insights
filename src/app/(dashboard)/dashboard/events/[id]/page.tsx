@@ -11,6 +11,8 @@ import {
 import { Upload, Users, CalendarDays } from "lucide-react";
 import { EventAttendanceWithFilter } from "@/components/events/event-attendance-with-filter";
 import { EventDemographicsSection } from "@/components/events/event-demographics-section";
+import { EventReachSection } from "@/components/events/event-reach-section";
+import { QuestionSection } from "@/components/events/event-section";
 
 const typeToneMap: Record<string, "ochre" | "default" | "moss"> = {
   shabbat: "ochre",
@@ -23,6 +25,7 @@ import {
   getAttendanceComparison,
   getEventDemographics,
   getAvailableYears,
+  getEventReach,
 } from "@/lib/event-analytics";
 
 export default async function EventDetailPage({
@@ -52,10 +55,11 @@ export default async function EventDetailPage({
   const serviceClient = createServiceClient();
 
   // Load all data in parallel
-  const [attendance, demographics, availableYears] = await Promise.all([
+  const [attendance, demographics, availableYears, reach] = await Promise.all([
     getAttendanceComparison(supabase, id, event.organization_id, event.event_type, undefined, serviceClient),
     getEventDemographics(supabase, id),
     getAvailableYears(supabase, event.organization_id),
+    getEventReach(supabase, id, event.organization_id, event.event_date, serviceClient),
   ]);
 
   const hasData = attendance.thisEvent > 0;
@@ -109,35 +113,45 @@ export default async function EventDetailPage({
       />
 
       {hasData ? (
-        <div className="space-y-8">
-          <EventAttendanceWithFilter
-            initialAttendance={attendance}
-            eventId={id}
-            organizationId={event.organization_id}
-            eventType={event.event_type}
-            orgName={orgName}
-            eventTypeLabel={eventTypeLabel}
-            availableYears={availableYears}
-          />
+        <div className="space-y-12">
+          <QuestionSection
+            n={1}
+            question="Was this well attended?"
+            subtitle={`How ${attendance.thisEvent} attendees compares to similar events — yours and the wider community's.`}
+          >
+            <EventAttendanceWithFilter
+              initialAttendance={attendance}
+              eventId={id}
+              organizationId={event.organization_id}
+              eventType={event.event_type}
+              orgName={orgName}
+              eventTypeLabel={eventTypeLabel}
+              availableYears={availableYears}
+            />
+          </QuestionSection>
 
-          <div className="space-y-4">
-            <h2
-              className="font-serif"
-              style={{
-                fontSize: 20,
-                fontWeight: 500,
-                color: "var(--ink-800)",
-                letterSpacing: "-0.01em",
-                margin: 0,
-              }}
-            >
-              Event demographics
-            </h2>
+          <QuestionSection
+            n={2}
+            question="Who participated?"
+            subtitle={
+              demographics.length > 0
+                ? `${attendance.thisEvent} attendees across ${demographics.length} demographic ${demographics.length === 1 ? "dimension" : "dimensions"} we could resolve.`
+                : `${attendance.thisEvent} attendees.`
+            }
+          >
             <EventDemographicsSection
               fields={demographics}
               totalAttendees={attendance.thisEvent}
             />
-          </div>
+          </QuestionSection>
+
+          <QuestionSection
+            n={3}
+            question="Did we reach anyone new?"
+            subtitle="Whether this event grew the community, drew from the wider community, or re-engaged your regulars."
+          >
+            <EventReachSection reach={reach} orgName={orgName} />
+          </QuestionSection>
         </div>
       ) : (
         <Panel>

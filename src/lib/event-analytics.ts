@@ -25,6 +25,14 @@ export interface DemographicField {
   total: number;
 }
 
+export interface EventReach {
+  total: number;           // unique attendees at this event
+  newToCommunity: number;  // first-ever appearance anywhere in the system
+  newToOrg: number;        // seen before elsewhere, but first touch with this org
+  returning: number;       // attended a prior event at this org
+  hasHistory: boolean;     // is there any earlier event data to compare against?
+}
+
 export interface EventAnalyticsData {
   attendance: AttendanceComparison;
   demographics: DemographicField[];
@@ -234,6 +242,71 @@ export async function getAttendanceComparison(
     communityEventTypeAvg,
     communityEventTypeCount,
   };
+}
+
+// ── Reach: new-to-community / new-to-org / returning ──
+
+/**
+ * Classifies this event's attendees by how new they are to the community graph:
+ *   - returning:      attended a prior event at THIS org
+ *   - newToOrg:       seen before at some OTHER org, but first touch with this org
+ *   - newToCommunity: first-ever appearance anywhere in the system
+ *
+ * "Prior" means an attendance at an event dated strictly before this event.
+ * The community-wide lookup needs the service client to bypass RLS; without it
+ * we can only see this org's own events and everyone reads as new-to-community.
+ */
+export async function getEventReach(
+  supabase: SupabaseClient,
+  eventId: string,
+  organizationId: string,
+  eventDate: string, // ISO 'YYYY-MM-DD'
+  serviceClient?: SupabaseClient
+): Promise<EventReach> {
+  const { data: thisAttendees } = await supabase
+    .from("event_attendees")
+    .select("person_id")
+    .eq("event_id", eventId);
+
+  const personIds = [...new Set((thisAttendees ?? []).map((a) => a.person_id))];
+  const total = personIds.length;
+  if (total === 0) {
+    return { total: 0, newToCommunity: 0, newToOrg: 0, returning: 0, hasHistory: false };
+  }
+
+  // Every attendance these people have anywhere in the system, with the
+  // owning org + date so we can tell prior-here from prior-elsewhere.
+  const client = serviceClient ?? supabase;
+  const { data: history } = await client
+    .from("event_attendees")
+    .select("person_id, event_id, events!inner(organization_id, event_date)")
+    .in("person_id", personIds);
+
+  const priorThisOrg = new Set<string>();
+  const priorAnywhere = new Set<string>();
+  let hasHistory = false;
+
+  for (const row of history ?? []) {
+    if (row.event_id === eventId) continue; // ignore the event we're analyzing
+    const ev = Array.isArray(row.events) ? row.events[0] : row.events;
+    if (!ev) continue;
+    // Only strictly-earlier attendances count as "prior".
+    if (String(ev.event_date) >= eventDate) continue;
+    hasHistory = true;
+    priorAnywhere.add(row.person_id);
+    if (ev.organization_id === organizationId) priorThisOrg.add(row.person_id);
+  }
+
+  let returning = 0;
+  let newToOrg = 0;
+  let newToCommunity = 0;
+  for (const pid of personIds) {
+    if (priorThisOrg.has(pid)) returning++;
+    else if (priorAnywhere.has(pid)) newToOrg++;
+    else newToCommunity++;
+  }
+
+  return { total, newToCommunity, newToOrg, returning, hasHistory };
 }
 
 // ── Demographics with coverage-based field detection ──

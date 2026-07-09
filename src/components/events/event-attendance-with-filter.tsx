@@ -106,8 +106,7 @@ export function EventAttendanceWithFilter({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold tracking-tight">Event Attendance</h2>
+      <div className="flex items-center justify-end">
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Timeframe:</span>
           <Select value={timeframe} onValueChange={(v) => setTimeframe(v ?? "all")}>
