@@ -15,6 +15,51 @@ export interface AttendanceComparison {
   orgEventTypeCount: number;       // number of events in this org of this type
   communityEventTypeAvg: number;   // average attendees per event community-wide for this type
   communityEventTypeCount: number; // number of events community-wide of this type
+  // Community split by institution type, relative to THIS event's org type.
+  orgType: string;                 // this event's org type, e.g. 'jcc'
+  peerTypeAvg: number;             // avg at OTHER same-type orgs (e.g. other JCCs), same event type
+  peerTypeCount: number;
+  otherTypeAvg: number;            // avg at different-type orgs (e.g. non-JCCs), same event type
+  otherTypeCount: number;
+}
+
+// One attendance bucket, counted separately for each peer group.
+export interface DistributionBucket {
+  range: string;
+  all: number;
+  peer: number;   // events at same-type orgs (excluding this org)
+  other: number;  // events at different-type orgs
+}
+
+export interface AttendanceDistribution {
+  buckets: DistributionBucket[];
+  thisEventBucket: string;
+  orgType: string;
+  totals: { all: number; peer: number; other: number };
+}
+
+const ATTENDANCE_BUCKETS: { label: string; min: number; max: number }[] = [
+  { label: "1–10", min: 1, max: 10 },
+  { label: "11–20", min: 11, max: 20 },
+  { label: "21–30", min: 21, max: 30 },
+  { label: "31–40", min: 31, max: 40 },
+  { label: "41–50", min: 41, max: 50 },
+  { label: "51–75", min: 51, max: 75 },
+  { label: "76–100", min: 76, max: 100 },
+  { label: "100+", min: 101, max: Infinity },
+];
+
+export function attendanceBucketLabel(count: number): string {
+  for (const b of ATTENDANCE_BUCKETS) {
+    if (count >= b.min && count <= b.max) return b.label;
+  }
+  return ATTENDANCE_BUCKETS[0].label;
+}
+
+// Normalize the embedded organizations row (supabase returns object or array).
+function embeddedOrgType(row: { organizations?: unknown }): string {
+  const org = Array.isArray(row.organizations) ? row.organizations[0] : row.organizations;
+  return (org as { org_type?: string } | null)?.org_type ?? "other";
 }
 
 export interface DemographicField {
@@ -45,6 +90,33 @@ const AGE_ORDER = [
   "0-5", "6-10", "11-15", "16-20", "21-30",
   "31-40", "41-50", "51-60", "61+",
 ];
+
+// Human labels for org types (schema enum), used to name peer groups.
+const ORG_TYPE_LABELS: Record<string, { one: string; many: string }> = {
+  synagogue: { one: "Synagogue", many: "Synagogues" },
+  jcc: { one: "JCC", many: "JCCs" },
+  day_school: { one: "Day School", many: "Day Schools" },
+  federation: { one: "Federation", many: "Federations" },
+  camp: { one: "Camp", many: "Camps" },
+  youth_org: { one: "Youth Org", many: "Youth Orgs" },
+  social_service: { one: "Social-Service Org", many: "Social-Service Orgs" },
+  other: { one: "Organization", many: "Organizations" },
+};
+
+export function orgTypeLabel(orgType: string, plural = false): string {
+  const l = ORG_TYPE_LABELS[orgType] ?? ORG_TYPE_LABELS.other;
+  return plural ? l.many : l.one;
+}
+
+/** e.g. "Other JCCs" for the same-type peer group. */
+export function peerGroupLabel(orgType: string): string {
+  return `Other ${orgTypeLabel(orgType, true)}`;
+}
+
+/** e.g. "Non-JCC orgs" for the different-type group. */
+export function otherGroupLabel(orgType: string): string {
+  return `Non-${orgTypeLabel(orgType, false)} orgs`;
+}
 
 const DENOM_LABELS: Record<string, string> = {
   reform: "Reform",
@@ -219,21 +291,44 @@ export async function getAttendanceComparison(
   const orgTotalAttendees = orgEvents?.reduce((sum, e) => sum + (e.attendee_count || 0), 0) || 0;
   const orgEventTypeAvg = orgEventTypeCount > 0 ? Math.round(orgTotalAttendees / orgEventTypeCount) : 0;
 
-  // All community events of this type (across all orgs)
-  // Use service client to bypass RLS so we see events from ALL orgs
+  // All community events of this type (across all orgs), tagged with the
+  // owning org's type so we can split peers (same type) from other institutions.
+  // Use service client to bypass RLS so we see events from ALL orgs.
   const communityClient = serviceClient || supabase;
+
+  const { data: orgRow } = await communityClient
+    .from("organizations")
+    .select("org_type")
+    .eq("id", organizationId)
+    .single();
+  const orgType = (orgRow?.org_type as string) ?? "other";
+
   let communityQuery = communityClient
     .from("events")
-    .select("id, attendee_count")
+    .select("id, attendee_count, organization_id, organizations!inner(org_type)")
     .eq("event_type", eventType);
   if (dateFilter) {
     if (dateFilter.start) communityQuery = communityQuery.gte("event_date", dateFilter.start);
     if (dateFilter.end) communityQuery = communityQuery.lte("event_date", dateFilter.end);
   }
   const { data: communityEvents } = await communityQuery;
-  const communityEventTypeCount = communityEvents?.length || 0;
-  const communityTotalAttendees = communityEvents?.reduce((sum, e) => sum + (e.attendee_count || 0), 0) || 0;
-  const communityEventTypeAvg = communityEventTypeCount > 0 ? Math.round(communityTotalAttendees / communityEventTypeCount) : 0;
+  const all = communityEvents ?? [];
+
+  const avg = (events: { attendee_count: number | null }[]) => {
+    if (events.length === 0) return 0;
+    const total = events.reduce((sum, e) => sum + (e.attendee_count || 0), 0);
+    return Math.round(total / events.length);
+  };
+
+  const communityEventTypeCount = all.length;
+  const communityEventTypeAvg = avg(all);
+
+  // Peers: other orgs of the SAME type (exclude this org — its own bar covers it).
+  const peerEvents = all.filter(
+    (e) => embeddedOrgType(e) === orgType && e.organization_id !== organizationId
+  );
+  // Others: orgs of a DIFFERENT type.
+  const otherEvents = all.filter((e) => embeddedOrgType(e) !== orgType);
 
   return {
     thisEvent,
@@ -241,6 +336,70 @@ export async function getAttendanceComparison(
     orgEventTypeCount,
     communityEventTypeAvg,
     communityEventTypeCount,
+    orgType,
+    peerTypeAvg: avg(peerEvents),
+    peerTypeCount: peerEvents.length,
+    otherTypeAvg: avg(otherEvents),
+    otherTypeCount: otherEvents.length,
+  };
+}
+
+// ── Attendance distribution: how many events fall in each attendance range,
+//    split by peer group so this event can be placed within its cohort ──
+
+export async function getAttendanceDistribution(
+  supabase: SupabaseClient,
+  eventId: string,
+  eventType: string,
+  organizationId: string,
+  serviceClient?: SupabaseClient
+): Promise<AttendanceDistribution> {
+  const client = serviceClient || supabase;
+
+  const { data: orgRow } = await client
+    .from("organizations")
+    .select("org_type")
+    .eq("id", organizationId)
+    .single();
+  const orgType = (orgRow?.org_type as string) ?? "other";
+
+  const { data: events } = await client
+    .from("events")
+    .select("attendee_count, organization_id, organizations!inner(org_type)")
+    .eq("event_type", eventType)
+    .gt("attendee_count", 0);
+  const all = events ?? [];
+
+  const inBucket = (
+    list: { attendee_count: number | null }[],
+    b: { min: number; max: number }
+  ) => list.filter((e) => (e.attendee_count || 0) >= b.min && (e.attendee_count || 0) <= b.max).length;
+
+  const peer = all.filter(
+    (e) => embeddedOrgType(e) === orgType && e.organization_id !== organizationId
+  );
+  const other = all.filter((e) => embeddedOrgType(e) !== orgType);
+
+  const buckets: DistributionBucket[] = ATTENDANCE_BUCKETS.map((b) => ({
+    range: b.label,
+    all: inBucket(all, b),
+    peer: inBucket(peer, b),
+    other: inBucket(other, b),
+  })).filter((row) => row.all > 0);
+
+  // This event's own attendee_count for placement within the ranges.
+  const { data: thisEventRow } = await supabase
+    .from("events")
+    .select("attendee_count")
+    .eq("id", eventId)
+    .single();
+  const thisEventBucket = attendanceBucketLabel(thisEventRow?.attendee_count || 0);
+
+  return {
+    buckets,
+    thisEventBucket,
+    orgType,
+    totals: { all: all.length, peer: peer.length, other: other.length },
   };
 }
 

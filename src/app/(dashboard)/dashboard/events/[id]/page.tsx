@@ -23,6 +23,7 @@ const typeToneMap: Record<string, "ochre" | "default" | "moss"> = {
 };
 import {
   getAttendanceComparison,
+  getAttendanceDistribution,
   getEventDemographics,
   getAvailableYears,
   getEventReach,
@@ -55,8 +56,9 @@ export default async function EventDetailPage({
   const serviceClient = createServiceClient();
 
   // Load all data in parallel
-  const [attendance, demographics, availableYears, reach] = await Promise.all([
+  const [attendance, distribution, demographics, availableYears, reach] = await Promise.all([
     getAttendanceComparison(supabase, id, event.organization_id, event.event_type, undefined, serviceClient),
+    getAttendanceDistribution(supabase, id, event.event_type, event.organization_id, serviceClient),
     getEventDemographics(supabase, id),
     getAvailableYears(supabase, event.organization_id),
     getEventReach(supabase, id, event.organization_id, event.event_date, serviceClient),
@@ -121,6 +123,7 @@ export default async function EventDetailPage({
           >
             <EventAttendanceWithFilter
               initialAttendance={attendance}
+              distribution={distribution}
               eventId={id}
               organizationId={event.organization_id}
               eventType={event.event_type}

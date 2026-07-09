@@ -9,10 +9,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EventAttendanceSection } from "./event-attendance-section";
-import type { AttendanceComparison } from "@/lib/event-analytics";
+import type { AttendanceComparison, AttendanceDistribution } from "@/lib/event-analytics";
 
 interface Props {
   initialAttendance: AttendanceComparison;
+  distribution: AttendanceDistribution;
   eventId: string;
   organizationId: string;
   eventType: string;
@@ -56,6 +57,7 @@ function buildTimeframeOptions(years: number[]): TimeframeOption[] {
 
 export function EventAttendanceWithFilter({
   initialAttendance,
+  distribution,
   eventId,
   organizationId,
   eventType,
@@ -126,6 +128,7 @@ export function EventAttendanceWithFilter({
       <div className={loading ? "opacity-50 transition-opacity" : ""}>
         <EventAttendanceSection
           attendance={attendance}
+          distribution={distribution}
           orgName={orgName}
           eventTypeLabel={eventTypeLabel}
           organizationId={organizationId}
