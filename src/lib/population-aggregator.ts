@@ -63,12 +63,29 @@ interface GlobalEvent {
 }
 
 export interface CrossOrgInsights {
-  /** % of segment members who also belong to ≥1 other org of each type */
+  /**
+   * Coverage denominators. Affiliation percentages are computed against the
+   * people/households we actually have cross-org data for — not the whole
+   * segment — so a sparse network doesn't understate affiliation rates.
+   */
+  coverage: {
+    totalPeople: number;
+    totalHouseholds: number;
+    peopleWithData: number;
+    householdsWithData: number;
+  };
+  /** Affiliation with ≥1 other org of each type, deduped per person/household */
   affiliationByType: {
     orgType: string;
     label: string;
-    count: number;
-    pctOfSegment: number;
+    people: number;
+    households: number;
+    /** % of households with cross-org data */
+    pctOfCoveredHouseholds: number;
+    /** % of people with cross-org data */
+    pctOfCoveredPeople: number;
+    /** Household-deduped subtype split (e.g. denominations for synagogues) */
+    bySubtype: { subtype: string | null; households: number; pct: number }[];
   }[];
   /** Top other orgs the segment overlaps with (any source) */
   topOverlappingOrgs: {
@@ -76,7 +93,10 @@ export interface CrossOrgInsights {
     name: string;
     orgType: string;
     subtype: string | null;
-    count: number;
+    people: number;
+    households: number;
+    /** What this org's shared people do at *this* org (business units) */
+    unitBreakdown: { unit: string; people: number }[];
   }[];
   /** For each event_type, count of distinct people attending at this org vs. other orgs */
   programShare: {
@@ -111,6 +131,81 @@ interface EventRow {
 interface AttendeeRow {
   person_id: string;
   event_id: string;
+}
+
+/**
+ * Household linkage. Two signals, both conservative:
+ *  1. Same normalized street address (when identities carry one).
+ *  2. A profile's `spouse_name` attribute exactly matching another person's
+ *     full name — only when the match is unambiguous (exactly one person by
+ *     that name) and zips don't conflict.
+ * Everyone else is their own household. Returns personId → householdId.
+ */
+function buildHouseholds(
+  profiles: ProfileRow[],
+  identitiesById: Map<string, IdentityRow>
+): Map<string, string> {
+  const parent = new Map<string, string>();
+  const find = (x: string): string => {
+    let r = parent.get(x) ?? x;
+    while (r !== (parent.get(r) ?? r)) r = parent.get(r) ?? r;
+    // path compression
+    let c = x;
+    while (c !== r) {
+      const next = parent.get(c) ?? c;
+      parent.set(c, r);
+      c = next;
+    }
+    return r;
+  };
+  const union = (a: string, b: string) => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra !== rb) parent.set(ra, rb);
+  };
+
+  const zipOf = (p: ProfileRow): string | null => {
+    const z = p.attributes?.zip_code;
+    return typeof z === "string" && z ? z.slice(0, 5) : null;
+  };
+
+  // 1) Address linkage
+  const byAddress = new Map<string, string>();
+  for (const p of profiles) {
+    const addr = identitiesById.get(p.id)?.address;
+    if (typeof addr !== "string") continue;
+    const key = addr.trim().toLowerCase().replace(/\s+/g, " ");
+    if (key.length < 6) continue;
+    const existing = byAddress.get(key);
+    if (existing) union(p.id, existing);
+    else byAddress.set(key, p.id);
+  }
+
+  // 2) Spouse-name linkage
+  const byFullName = new Map<string, string[]>();
+  for (const p of profiles) {
+    const id = identitiesById.get(p.id);
+    if (!id?.first_name || !id?.last_name) continue;
+    const key = `${id.first_name} ${id.last_name}`.trim().toLowerCase();
+    const list = byFullName.get(key);
+    if (list) list.push(p.id);
+    else byFullName.set(key, [p.id]);
+  }
+  for (const p of profiles) {
+    const spouse = p.attributes?.spouse_name;
+    if (typeof spouse !== "string" || !spouse) continue;
+    const matches = byFullName.get(spouse.trim().toLowerCase()) ?? [];
+    if (matches.length !== 1 || matches[0] === p.id) continue;
+    const other = profiles.find((q) => q.id === matches[0]);
+    const zipA = zipOf(p);
+    const zipB = other ? zipOf(other) : null;
+    if (zipA && zipB && zipA !== zipB) continue;
+    union(p.id, matches[0]);
+  }
+
+  const result = new Map<string, string>();
+  for (const p of profiles) result.set(p.id, find(p.id));
+  return result;
 }
 
 function isCurrentMember(p: ProfileRow): boolean {
@@ -154,7 +249,8 @@ function compute(
   orgId: string,
   profiles: ProfileRow[],
   identitiesById: Map<string, IdentityRow>,
-  eventsByPerson: Map<string, EventRow[]>
+  eventsByPerson: Map<string, EventRow[]>,
+  householdOf?: Map<string, string>
 ): PopulationSummary {
   const orgPrefix = `org:${orgId}:`;
   const total = profiles.length;
@@ -341,7 +437,9 @@ function compute(
     uploadDate: new Date().toISOString().slice(0, 10),
     entityLabel,
     totalMembers: total,
-    totalHouseholds: 0, // no household linkage in seed yet
+    totalHouseholds: householdOf
+      ? new Set(profiles.map((p) => householdOf.get(p.id) ?? p.id)).size
+      : 0,
     membershipTypes,
     ageBuckets,
     programParticipation,
@@ -382,11 +480,18 @@ function computeCrossOrg(
   thisOrgId: string,
   profiles: ProfileRow[],
   attendancesByPerson: Map<string, { eventType: string; orgId: string }[]>,
-  orgsById: Map<string, OrgRow>
+  orgsById: Map<string, OrgRow>,
+  householdOf: Map<string, string>
 ): CrossOrgInsights {
   const total = profiles.length;
   if (total === 0) {
     return {
+      coverage: {
+        totalPeople: 0,
+        totalHouseholds: 0,
+        peopleWithData: 0,
+        householdsWithData: 0,
+      },
       affiliationByType: [],
       topOverlappingOrgs: [],
       programShare: [],
@@ -394,6 +499,10 @@ function computeCrossOrg(
       totalEcosystemOrgs: 0,
     };
   }
+
+  const hh = (personId: string) => householdOf.get(personId) ?? personId;
+  const totalHouseholds = new Set(profiles.map((p) => hh(p.id))).size;
+  const memberIds = new Set(profiles.filter(isCurrentMember).map((p) => p.id));
 
   // Per person — orgs they touch via membership AND via event attendance
   const orgsTouchedPerPerson = new Map<string, Set<string>>();
@@ -404,8 +513,29 @@ function computeCrossOrg(
     orgsTouchedPerPerson.set(p.id, orgs);
   }
 
-  // Affiliation by type — count people who touch ≥1 other org of each type
+  // Coverage — people/households with ≥1 affiliation beyond this org.
+  // This is the denominator for affiliation rates: "of those we have data for".
+  let peopleWithData = 0;
+  const householdsWithData = new Set<string>();
+  for (const [personId, orgs] of orgsTouchedPerPerson) {
+    let external = false;
+    for (const o of orgs) {
+      if (o !== thisOrgId) {
+        external = true;
+        break;
+      }
+    }
+    if (external) {
+      peopleWithData++;
+      householdsWithData.add(hh(personId));
+    }
+  }
+  const coveredHouseholds = householdsWithData.size;
+
+  // Affiliation by type — dedupe people AND households per org type/subtype
   const peopleByOtherOrgType = new Map<string, Set<string>>();
+  const householdsByOtherOrgType = new Map<string, Set<string>>();
+  const householdsByTypeSubtype = new Map<string, Map<string, Set<string>>>();
   const peopleByOtherOrg = new Map<string, Set<string>>();
   const allEcosystemOrgs = new Set<string>();
   for (const [personId, orgs] of orgsTouchedPerPerson) {
@@ -416,34 +546,78 @@ function computeCrossOrg(
       if (!meta) continue;
       if (!peopleByOtherOrgType.has(meta.org_type)) {
         peopleByOtherOrgType.set(meta.org_type, new Set());
+        householdsByOtherOrgType.set(meta.org_type, new Set());
+        householdsByTypeSubtype.set(meta.org_type, new Map());
       }
       peopleByOtherOrgType.get(meta.org_type)!.add(personId);
+      householdsByOtherOrgType.get(meta.org_type)!.add(hh(personId));
+      const subKey = meta.subtype ?? "";
+      const subMap = householdsByTypeSubtype.get(meta.org_type)!;
+      if (!subMap.has(subKey)) subMap.set(subKey, new Set());
+      subMap.get(subKey)!.add(hh(personId));
       if (!peopleByOtherOrg.has(orgId)) peopleByOtherOrg.set(orgId, new Set());
       peopleByOtherOrg.get(orgId)!.add(personId);
     }
   }
 
+  const pctOf = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 100) : 0);
+
   const affiliationByType = Array.from(peopleByOtherOrgType.entries())
-    .map(([orgType, peopleSet]) => ({
-      orgType,
-      label: ORG_TYPE_LABELS[orgType] ?? orgType,
-      count: peopleSet.size,
-      pctOfSegment: Math.round((peopleSet.size / total) * 100),
-    }))
-    .sort((a, b) => b.count - a.count);
+    .map(([orgType, peopleSet]) => {
+      const typeHouseholds = householdsByOtherOrgType.get(orgType)!.size;
+      const bySubtype = Array.from(
+        (householdsByTypeSubtype.get(orgType) ?? new Map<string, Set<string>>()).entries()
+      )
+        .map(([subKey, hhSet]) => ({
+          subtype: subKey === "" ? null : subKey,
+          households: hhSet.size,
+          pct: pctOf(hhSet.size, typeHouseholds),
+        }))
+        .sort((a, b) => b.households - a.households);
+      return {
+        orgType,
+        label: ORG_TYPE_LABELS[orgType] ?? orgType,
+        people: peopleSet.size,
+        households: typeHouseholds,
+        pctOfCoveredHouseholds: pctOf(typeHouseholds, coveredHouseholds),
+        pctOfCoveredPeople: pctOf(peopleSet.size, peopleWithData),
+        bySubtype,
+      };
+    })
+    .sort((a, b) => b.people - a.people);
 
   const topOverlappingOrgs = Array.from(peopleByOtherOrg.entries())
     .map(([orgId, peopleSet]) => {
       const meta = orgsById.get(orgId);
+      // What this org's shared people do at *this* org (business units):
+      // this-org event types + membership, deduped per person per unit.
+      const unitPeople = new Map<string, Set<string>>();
+      for (const personId of peopleSet) {
+        const units = new Set<string>();
+        for (const a of attendancesByPerson.get(personId) ?? []) {
+          if (a.orgId === thisOrgId) units.add(humanizeEventType(a.eventType));
+        }
+        if (memberIds.has(personId)) units.add("Membership");
+        for (const u of units) {
+          if (!unitPeople.has(u)) unitPeople.set(u, new Set());
+          unitPeople.get(u)!.add(personId);
+        }
+      }
+      const unitBreakdown = Array.from(unitPeople.entries())
+        .map(([unit, set]) => ({ unit, people: set.size }))
+        .sort((a, b) => b.people - a.people)
+        .slice(0, 6);
       return {
         orgId,
         name: meta?.name ?? "Unknown",
         orgType: meta?.org_type ?? "other",
         subtype: meta?.subtype ?? null,
-        count: peopleSet.size,
+        people: peopleSet.size,
+        households: new Set(Array.from(peopleSet).map(hh)).size,
+        unitBreakdown,
       };
     })
-    .sort((a, b) => b.count - a.count);
+    .sort((a, b) => b.people - a.people);
 
   // Program share by event_type — for each category, count distinct people
   // who attended at this org vs. at any other org.
@@ -487,6 +661,12 @@ function computeCrossOrg(
     }));
 
   return {
+    coverage: {
+      totalPeople: total,
+      totalHouseholds,
+      peopleWithData,
+      householdsWithData: coveredHouseholds,
+    },
     affiliationByType,
     topOverlappingOrgs,
     programShare,
@@ -576,7 +756,7 @@ export async function getPopulationForOrg(
   const personIdList = Array.from(personIds);
   if (personIdList.length === 0) {
     const empty = compute("all", orgName, orgId, [], new Map(), new Map());
-    const emptyCross = computeCrossOrg(orgId, [], new Map(), new Map());
+    const emptyCross = computeCrossOrg(orgId, [], new Map(), new Map(), new Map());
     return {
       orgName,
       segments: {
@@ -607,12 +787,12 @@ export async function getPopulationForOrg(
       )
       .in("id", slice);
     if (pfsRes.error?.code === "42703") {
-      pfsRes = await supabase
+      pfsRes = (await supabase
         .from("people_profiles")
         .select(
           "id, date_of_birth, age_bucket, has_children, number_of_children, is_member, member_org_ids, attributes"
         )
-        .in("id", slice);
+        .in("id", slice)) as typeof pfsRes;
     }
     const idsRes = await supabase
       .from("people_identities")
@@ -686,6 +866,9 @@ export async function getPopulationForOrg(
     }
   }
 
+  // Household linkage across the full population (segments share households)
+  const householdOf = buildHouseholds(profiles, identitiesById);
+
   // Filter for each segment and compute
   const allProfiles = profiles;
   const memberProfiles = profiles.filter(isCurrentMember);
@@ -695,14 +878,23 @@ export async function getPopulationForOrg(
   return {
     orgName,
     segments: {
-      all: compute("all", orgName, orgId, allProfiles, identitiesById, eventsByPerson),
+      all: compute(
+        "all",
+        orgName,
+        orgId,
+        allProfiles,
+        identitiesById,
+        eventsByPerson,
+        householdOf
+      ),
       members: compute(
         "members",
         orgName,
         orgId,
         memberProfiles,
         identitiesById,
-        eventsByPerson
+        eventsByPerson,
+        householdOf
       ),
       non_members: compute(
         "non_members",
@@ -710,17 +902,25 @@ export async function getPopulationForOrg(
         orgId,
         nonMemberProfiles,
         identitiesById,
-        eventsByPerson
+        eventsByPerson,
+        householdOf
       ),
     },
     crossOrg: {
-      all: computeCrossOrg(orgId, allProfiles, attendancesByPerson, orgsById),
-      members: computeCrossOrg(orgId, memberProfiles, attendancesByPerson, orgsById),
+      all: computeCrossOrg(orgId, allProfiles, attendancesByPerson, orgsById, householdOf),
+      members: computeCrossOrg(
+        orgId,
+        memberProfiles,
+        attendancesByPerson,
+        orgsById,
+        householdOf
+      ),
       non_members: computeCrossOrg(
         orgId,
         nonMemberProfiles,
         attendancesByPerson,
-        orgsById
+        orgsById,
+        householdOf
       ),
     },
   };

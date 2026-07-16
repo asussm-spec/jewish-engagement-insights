@@ -14,17 +14,20 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Bar, BarChart, XAxis, YAxis } from "recharts";
-import { Building2, GraduationCap, Tent, Network, Users, ListOrdered } from "lucide-react";
+import {
+  Building2,
+  GraduationCap,
+  Tent,
+  Network,
+  Users,
+  ListOrdered,
+  ChevronRight,
+} from "lucide-react";
 import type { CrossOrgInsights as CrossOrgData } from "@/lib/population-aggregator";
 
 interface Props {
   data: CrossOrgData;
   segmentLabel: string;
-  segmentTotal: number;
-  /** People with ≥1 cross-org affiliation in our data */
-  coverageCount: number;
-  /** % of segment we have any cross-org data for */
-  coveragePct: number;
   thisOrgName: string;
 }
 
@@ -45,6 +48,9 @@ const SUBTYPE_LABELS: Record<string, string> = {
   independent: "Independent",
 };
 
+/** Fixed display order for the synagogue denomination breakdown. */
+const DENOMINATION_ORDER = ["reform", "conservative", "modern_orthodox", "orthodox"];
+
 const ORG_TYPE_BADGE_LABELS: Record<string, string> = {
   synagogue: "Synagogue",
   day_school: "Day school",
@@ -56,26 +62,15 @@ const ORG_TYPE_BADGE_LABELS: Record<string, string> = {
   other: "Other",
 };
 
-interface OrgEntry {
-  orgId: string;
-  name: string;
-  subtype: string | null;
-  count: number;
-}
+type OrgEntry = CrossOrgData["topOverlappingOrgs"][number];
+type TypeStats = CrossOrgData["affiliationByType"][number];
 
 function labelForSubtype(subtype: string | null): string {
   if (!subtype) return "Other";
   return SUBTYPE_LABELS[subtype] ?? subtype;
 }
 
-export function CrossOrgInsightsView({
-  data,
-  segmentLabel,
-  segmentTotal,
-  coverageCount,
-  coveragePct,
-  thisOrgName,
-}: Props) {
+export function CrossOrgInsightsView({ data, segmentLabel, thisOrgName }: Props) {
   const segmentLower = segmentLabel.toLowerCase();
   const noData =
     data.affiliationByType.length === 0 &&
@@ -86,14 +81,19 @@ export function CrossOrgInsightsView({
     return null;
   }
 
+  const { coverage } = data;
+  const coveragePct =
+    coverage.totalPeople > 0
+      ? Math.round((coverage.peopleWithData / coverage.totalPeople) * 100)
+      : 0;
+
   const synagogues = data.topOverlappingOrgs.filter((o) => o.orgType === "synagogue");
   const daySchools = data.topOverlappingOrgs.filter((o) => o.orgType === "day_school");
   const camps = data.topOverlappingOrgs.filter((o) => o.orgType === "camp");
 
-  // Unique-person counts per type (from affiliationByType, which dedupes within type)
-  const uniqueByType = new Map<string, { count: number; pct: number }>();
+  const statsByType = new Map<string, TypeStats>();
   for (const row of data.affiliationByType) {
-    uniqueByType.set(row.orgType, { count: row.count, pct: row.pctOfSegment });
+    statsByType.set(row.orgType, row);
   }
 
   return (
@@ -129,14 +129,22 @@ export function CrossOrgInsightsView({
           }}
         >
           <span style={{ fontWeight: 600 }}>
-            Cross-org coverage: {coverageCount.toLocaleString()} of{" "}
-            {segmentTotal.toLocaleString()} ({coveragePct}%)
+            Cross-org coverage: {coverage.peopleWithData.toLocaleString()} of{" "}
+            {coverage.totalPeople.toLocaleString()} {segmentLower} ({coveragePct}
+            %)
+            {coverage.totalHouseholds > 0 && (
+              <>
+                {" · "}
+                {coverage.householdsWithData.toLocaleString()} of{" "}
+                {coverage.totalHouseholds.toLocaleString()} families
+              </>
+            )}
           </span>
           {" — "}
           <span style={{ color: "var(--stone-500)" }}>
             we have at least one other-org affiliation for these {segmentLower}.
-            The remaining {(segmentTotal - coverageCount).toLocaleString()} may
-            belong to other orgs we don&apos;t see yet.
+            Affiliation rates below are computed against this covered group, since
+            the rest may belong to orgs we don&apos;t see yet.
           </span>
         </div>
       </div>
@@ -240,7 +248,7 @@ export function CrossOrgInsightsView({
                         flex: "0 0 auto",
                       }}
                     >
-                      {org.count}
+                      {org.people}
                     </div>
                   </div>
                 ))}
@@ -254,27 +262,37 @@ export function CrossOrgInsightsView({
       <div className="grid gap-5 md:grid-cols-3">
         <OrgTypePanel
           title="Synagogues"
-          headingNoun="synagogue"
           icon={<Building2 className="h-4 w-4" style={{ color: "var(--ink-600)" }} />}
+          verbPhrase="also belong to a synagogue"
+          emptyNoun="synagogue"
           orgs={synagogues}
-          uniquePeople={uniqueByType.get("synagogue")}
+          stats={statsByType.get("synagogue")}
+          coverage={coverage}
           groupingLabel="By denomination"
+          fixedSubtypeOrder={DENOMINATION_ORDER}
+          thisOrgName={thisOrgName}
         />
         <OrgTypePanel
           title="Day Schools"
-          headingNoun="day school"
           icon={<GraduationCap className="h-4 w-4" style={{ color: "var(--ink-600)" }} />}
+          verbPhrase="have a child at a Jewish day school"
+          emptyNoun="day school"
           orgs={daySchools}
-          uniquePeople={uniqueByType.get("day_school")}
+          stats={statsByType.get("day_school")}
+          coverage={coverage}
           groupingLabel="By type"
+          thisOrgName={thisOrgName}
         />
         <OrgTypePanel
           title="Camps"
-          headingNoun="Jewish camp"
           icon={<Tent className="h-4 w-4" style={{ color: "var(--ink-600)" }} />}
+          verbPhrase="send a child to another Jewish camp"
+          emptyNoun="Jewish camp"
           orgs={camps}
-          uniquePeople={uniqueByType.get("camp")}
+          stats={statsByType.get("camp")}
+          coverage={coverage}
           groupingLabel="By category"
+          thisOrgName={thisOrgName}
         />
       </div>
 
@@ -345,44 +363,78 @@ export function CrossOrgInsightsView({
   );
 }
 
+/**
+ * Order the subtype breakdown for display. With `fixedOrder` (denominations),
+ * known subtypes appear in that canonical order and everything else is merged
+ * into a trailing "Other"; otherwise subtypes sort by household count.
+ */
+function orderSubtypes(
+  bySubtype: TypeStats["bySubtype"],
+  fixedOrder?: string[]
+): { label: string; households: number; pct: number }[] {
+  if (!fixedOrder) {
+    return bySubtype.map((s) => ({
+      label: labelForSubtype(s.subtype),
+      households: s.households,
+      pct: s.pct,
+    }));
+  }
+  const ordered: { label: string; households: number; pct: number }[] = [];
+  for (const key of fixedOrder) {
+    const row = bySubtype.find((s) => s.subtype === key);
+    if (row) {
+      ordered.push({
+        label: labelForSubtype(row.subtype),
+        households: row.households,
+        pct: row.pct,
+      });
+    }
+  }
+  const rest = bySubtype.filter((s) => !fixedOrder.includes(s.subtype ?? ""));
+  const otherHouseholds = rest.reduce((sum, s) => sum + s.households, 0);
+  const otherPct = rest.reduce((sum, s) => sum + s.pct, 0);
+  if (otherHouseholds > 0) {
+    ordered.push({ label: "Other", households: otherHouseholds, pct: otherPct });
+  }
+  return ordered;
+}
+
 function OrgTypePanel({
   title,
-  headingNoun,
   icon,
+  verbPhrase,
+  emptyNoun,
   orgs,
-  uniquePeople,
+  stats,
+  coverage,
   groupingLabel,
+  fixedSubtypeOrder,
+  thisOrgName,
 }: {
   title: string;
-  headingNoun: string;
   icon: React.ReactNode;
+  /** Completes "NN% of your families …", e.g. "also belong to a synagogue" */
+  verbPhrase: string;
+  emptyNoun: string;
   orgs: OrgEntry[];
-  /** Unique people overlap (from affiliationByType) — dedupes within type */
-  uniquePeople?: { count: number; pct: number };
+  stats?: TypeStats;
+  coverage: CrossOrgData["coverage"];
   groupingLabel: string;
+  /** Canonical subtype order (denominations); others merge into "Other" */
+  fixedSubtypeOrder?: string[];
+  thisOrgName: string;
 }) {
   const [showAll, setShowAll] = useState(false);
+  const [expandedOrgId, setExpandedOrgId] = useState<string | null>(null);
 
-  const totalPeople = uniquePeople?.count ?? 0;
-  const overallPct = uniquePeople?.pct ?? 0;
+  const households = stats?.households ?? 0;
+  const people = stats?.people ?? 0;
+  const pctHouseholds = stats?.pctOfCoveredHouseholds ?? 0;
 
-  // Sum of per-org counts (overcounts people in multiple orgs of same type)
-  // Used only as the denominator for grouping percentages.
-  const totalOrgMentions = orgs.reduce((s, o) => s + o.count, 0);
-
-  // Group by subtype
-  const groupCounts = new Map<string, number>();
-  for (const o of orgs) {
-    const label = labelForSubtype(o.subtype);
-    groupCounts.set(label, (groupCounts.get(label) ?? 0) + o.count);
-  }
-  const groupings = Array.from(groupCounts.entries())
-    .map(([label, count]) => ({
-      label,
-      count,
-      pct: totalOrgMentions > 0 ? Math.round((count / totalOrgMentions) * 100) : 0,
-    }))
-    .sort((a, b) => b.count - a.count);
+  const allGroupings = orderSubtypes(stats?.bySubtype ?? [], fixedSubtypeOrder);
+  // A lone "Other" bucket (no real subtype data) adds nothing — hide it.
+  const groupings =
+    allGroupings.length === 1 && allGroupings[0].label === "Other" ? [] : allGroupings;
 
   const initialOrgsShown = 5;
   const visibleOrgs = showAll ? orgs : orgs.slice(0, initialOrgsShown);
@@ -414,7 +466,7 @@ function OrgTypePanel({
           {icon}
           <span>{title}</span>
         </div>
-        {orgs.length === 0 || totalPeople === 0 ? (
+        {orgs.length === 0 || people === 0 ? (
           <div
             style={{
               fontSize: 13,
@@ -422,7 +474,7 @@ function OrgTypePanel({
               lineHeight: 1.5,
             }}
           >
-            No {headingNoun} affiliations found yet for this segment.
+            No {emptyNoun} affiliations found yet for this segment.
           </div>
         ) : (
           <>
@@ -436,7 +488,7 @@ function OrgTypePanel({
                 letterSpacing: "-0.01em",
               }}
             >
-              {totalPeople.toLocaleString()} of your {title === "Camps" ? "members' families" : "members"}
+              {pctHouseholds}% of your families
             </div>
             <div
               style={{
@@ -446,10 +498,22 @@ function OrgTypePanel({
                 lineHeight: 1.45,
               }}
             >
-              also belong to a {headingNoun}
-              {" · "}
-              <span style={{ fontWeight: 600, color: "var(--ink-700)" }}>{overallPct}%</span>{" "}
-              of segment
+              {verbPhrase}
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                color: "var(--ds-fg-muted)",
+                marginTop: 6,
+                lineHeight: 1.45,
+              }}
+            >
+              n ={" "}
+              <span style={{ fontWeight: 600, color: "var(--ink-700)" }}>
+                {households.toLocaleString()}
+              </span>{" "}
+              of the {coverage.householdsWithData.toLocaleString()} families with
+              cross-org data · {people.toLocaleString()} people
             </div>
           </>
         )}
@@ -510,7 +574,7 @@ function OrgTypePanel({
                     textAlign: "right",
                   }}
                 >
-                  {g.count} ({g.pct}%)
+                  {g.households} ({g.pct}%)
                 </div>
               </div>
             ))}
@@ -518,7 +582,7 @@ function OrgTypePanel({
         </div>
       )}
 
-      {/* ── Top orgs ── */}
+      {/* ── Top orgs (click to see what they do at this org) ── */}
       {orgs.length > 0 && (
         <div>
           <div
@@ -530,57 +594,157 @@ function OrgTypePanel({
               marginBottom: 8,
             }}
           >
-            Top {title.toLowerCase()}
+            Top {title.toLowerCase()} · families
           </div>
           <div>
-            {visibleOrgs.map((org, i) => (
-              <div
-                key={org.orgId}
-                className="flex items-baseline gap-2"
-                style={{
-                  padding: "6px 0",
-                  borderTop: i === 0 ? "none" : "1px solid var(--ds-border)",
-                }}
-              >
+            {visibleOrgs.map((org, i) => {
+              const expanded = expandedOrgId === org.orgId;
+              const maxUnit = Math.max(1, ...org.unitBreakdown.map((u) => u.people));
+              return (
                 <div
+                  key={org.orgId}
                   style={{
-                    flex: 1,
-                    minWidth: 0,
-                    fontSize: 13,
-                    color: "var(--ink-800)",
-                    fontWeight: 500,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap",
+                    borderTop: i === 0 ? "none" : "1px solid var(--ds-border)",
                   }}
                 >
-                  {org.name}
-                  {org.subtype && (
-                    <span
+                  <button
+                    type="button"
+                    onClick={() => setExpandedOrgId(expanded ? null : org.orgId)}
+                    aria-expanded={expanded}
+                    className="flex w-full items-baseline gap-2 text-left"
+                    style={{
+                      padding: "6px 0",
+                      background: "transparent",
+                      border: "none",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <ChevronRight
+                      className="h-3 w-3 flex-none self-center transition-transform"
                       style={{
-                        fontSize: 11,
-                        fontWeight: 400,
-                        color: "var(--stone-500)",
-                        marginLeft: 6,
+                        color: "var(--stone-400)",
+                        transform: expanded ? "rotate(90deg)" : undefined,
+                      }}
+                    />
+                    <div
+                      style={{
+                        flex: 1,
+                        minWidth: 0,
+                        fontSize: 13,
+                        color: "var(--ink-800)",
+                        fontWeight: 500,
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
                       }}
                     >
-                      · {labelForSubtype(org.subtype)}
-                    </span>
+                      {org.name}
+                      {org.subtype && (
+                        <span
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 400,
+                            color: "var(--stone-500)",
+                            marginLeft: 6,
+                          }}
+                        >
+                          · {labelForSubtype(org.subtype)}
+                        </span>
+                      )}
+                    </div>
+                    <div
+                      className="tabular-nums"
+                      style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: "var(--ink-700)",
+                        flex: "0 0 auto",
+                      }}
+                    >
+                      {org.households}
+                    </div>
+                  </button>
+                  {expanded && (
+                    <div
+                      style={{
+                        margin: "2px 0 10px 20px",
+                        padding: "10px 12px",
+                        background: "var(--paper-50)",
+                        border: "1px solid var(--ds-border)",
+                        borderRadius: 8,
+                      }}
+                    >
+                      <div
+                        className="font-semibold uppercase"
+                        style={{
+                          fontSize: 10,
+                          letterSpacing: "0.1em",
+                          color: "var(--stone-400)",
+                          marginBottom: 8,
+                        }}
+                      >
+                        What they do at {thisOrgName}
+                      </div>
+                      {org.unitBreakdown.length === 0 ? (
+                        <div style={{ fontSize: 12, color: "var(--stone-500)" }}>
+                          No activity at {thisOrgName} on record yet.
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {org.unitBreakdown.map((u) => (
+                            <div key={u.unit} className="flex items-center gap-2">
+                              <div
+                                style={{
+                                  flex: "0 0 auto",
+                                  fontSize: 11.5,
+                                  color: "var(--ink-700)",
+                                  minWidth: 110,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {u.unit}
+                              </div>
+                              <div
+                                style={{
+                                  flex: 1,
+                                  height: 6,
+                                  background: "var(--paper-200)",
+                                  borderRadius: 3,
+                                  overflow: "hidden",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    width: `${Math.round((u.people / maxUnit) * 100)}%`,
+                                    height: "100%",
+                                    background: "var(--ochre-400)",
+                                  }}
+                                />
+                              </div>
+                              <div
+                                className="tabular-nums"
+                                style={{
+                                  flex: "0 0 auto",
+                                  fontSize: 11.5,
+                                  fontWeight: 600,
+                                  color: "var(--ink-800)",
+                                  minWidth: 28,
+                                  textAlign: "right",
+                                }}
+                              >
+                                {u.people}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
-                <div
-                  className="tabular-nums"
-                  style={{
-                    fontSize: 13,
-                    fontWeight: 600,
-                    color: "var(--ink-700)",
-                    flex: "0 0 auto",
-                  }}
-                >
-                  {org.count}
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           {hiddenCount > 0 && (
             <button

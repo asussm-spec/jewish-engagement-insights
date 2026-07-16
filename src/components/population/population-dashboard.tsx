@@ -43,15 +43,11 @@ export function PopulationDashboard({
 
   const segmentTotal = data?.totalMembers ?? 0;
 
-  // "With cross-org data" = anyone we have at least one other-org affiliation
-  // for. Computed from engagementBreadth as everyone NOT in the "1 (only this
-  // org)" bucket. The "1 (only this org)" group genuinely could mean people
-  // we just don't have data on yet, so we explicitly frame this as coverage
-  // rather than as "exclusive".
-  const withCrossOrgData =
-    (crossOrgData?.engagementBreadth ?? [])
-      .filter((b) => b.bucket !== "1 (only this org)")
-      .reduce((s, b) => s + b.count, 0);
+  // Coverage comes from the aggregator: people/households with ≥1 other-org
+  // affiliation. People without one may simply belong to orgs we don't see
+  // yet, so this is framed as coverage rather than as "exclusive".
+  const withCrossOrgData = crossOrgData?.coverage.peopleWithData ?? 0;
+  const totalHouseholds = crossOrgData?.coverage.totalHouseholds ?? 0;
 
   const coveragePct = segmentTotal > 0 ? Math.round((withCrossOrgData / segmentTotal) * 100) : 0;
   const distinctOtherOrgs = crossOrgData?.totalEcosystemOrgs ?? 0;
@@ -106,7 +102,11 @@ export function PopulationDashboard({
           <StatCard
             label="Total"
             value={segmentTotal.toLocaleString()}
-            note={`${segmentLabel} in scope`}
+            note={
+              totalHouseholds > 0
+                ? `${segmentLabel} across ${totalHouseholds.toLocaleString()} families`
+                : `${segmentLabel} in scope`
+            }
           />
           <StatCard
             label="With cross-org data"
@@ -126,9 +126,6 @@ export function PopulationDashboard({
         <CrossOrgInsightsView
           data={crossOrgData}
           segmentLabel={segmentLabel}
-          segmentTotal={segmentTotal}
-          coverageCount={withCrossOrgData}
-          coveragePct={coveragePct}
           thisOrgName={orgName}
         />
       )}
