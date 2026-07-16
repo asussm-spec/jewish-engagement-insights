@@ -16,7 +16,6 @@ import {
   BarChart3,
   CalendarDays,
   Users,
-  Gauge,
   LayoutDashboard,
   LogOut,
   Settings,
@@ -48,7 +47,6 @@ const navItems: NavItem[] = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard, section: "Workspace" },
   { label: "Events", href: "/dashboard/events", icon: CalendarDays, section: "Workspace" },
   { label: "Population", href: "/dashboard/population", icon: Users, section: "Workspace" },
-  { label: "Engagement Depth", href: "/dashboard/engagement-depth", icon: Gauge, section: "Workspace" },
   { label: "Community Insights", href: "/dashboard/insights", icon: BarChart3, section: "Workspace" },
 ];
 

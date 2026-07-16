@@ -1,5 +1,5 @@
 /**
- * Mock data for the Engagement Depth view (concept).
+ * Mock data for the Engagement Depth section on the Population page (concept).
  *
  * Answers the question: "Of the people in each part of the JCC, who else are
  * they Jewishly?" — i.e. how deeply Jewish is each business unit. Frequency
@@ -35,19 +35,8 @@ export interface BusinessUnit {
   depth: DepthTier;
 }
 
-export interface ScopeSummary {
-  people: number;
-  households: number;
-  avgTouches: number;
-  /** % we can already see engaging Jewishly beyond the JCC. */
-  visibleJewishTiePct: number;
-}
-
-export type PeopleScope = "everyone" | "members";
-
 export interface EngagementDepthData {
   orgName: string;
-  scope: Record<PeopleScope, ScopeSummary>;
   /** Business units, ordered by descending Jewish depth. */
   units: BusinessUnit[];
   /** Which unit key corresponds to the membership base (highlighted in Members scope). */
@@ -57,20 +46,6 @@ export interface EngagementDepthData {
 export const MOCK_ENGAGEMENT_DEPTH: EngagementDepthData = {
   orgName: "Greater Boston JCC",
   memberUnitKey: "fitness",
-  scope: {
-    everyone: {
-      people: 23800,
-      households: 11400,
-      avgTouches: 4.2,
-      visibleJewishTiePct: 38,
-    },
-    members: {
-      people: 2050,
-      households: 1150,
-      avgTouches: 46,
-      visibleJewishTiePct: 52,
-    },
-  },
   units: [
     {
       key: "elc",

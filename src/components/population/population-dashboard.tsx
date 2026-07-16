@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { PopulationProfile } from "./population-profile";
 import { CrossOrgInsightsView } from "./cross-org-insights";
+import { EngagementDepthSection } from "./engagement-depth";
 import { CollapsibleSection } from "@/components/layout/collapsible-section";
 import { StatGrid, StatCard } from "@/components/layout/page-primitives";
 import type {
@@ -131,6 +132,9 @@ export function PopulationDashboard({
           thisOrgName={orgName}
         />
       )}
+
+      {/* ── Engagement depth by business unit (concept) ── */}
+      <EngagementDepthSection segment={segment} />
 
       {/* ── Internal demographics (collapsed) ── */}
       <CollapsibleSection

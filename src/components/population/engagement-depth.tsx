@@ -1,28 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { Panel, PanelHeader, InsightCard } from "@/components/layout/page-primitives";
 import {
-  StatGrid,
-  StatCard,
-  Panel,
-  PanelHeader,
-  InsightCard,
-} from "@/components/layout/page-primitives";
-import type {
-  EngagementDepthData,
-  PeopleScope,
-  DepthTier,
-  Provenance,
+  MOCK_ENGAGEMENT_DEPTH,
+  type DepthTier,
+  type Provenance,
 } from "@/lib/mock-engagement-depth";
+import type { PopulationSegment } from "@/lib/mock-population-data";
 
 interface Props {
-  data: EngagementDepthData;
+  /** The population page's active segment — this section follows its toggle. */
+  segment: PopulationSegment;
 }
-
-const SCOPE_LABELS: Record<PeopleScope, string> = {
-  everyone: "Everyone we serve",
-  members: "Members",
-};
 
 const DEPTH_STYLES: Record<
   DepthTier,
@@ -61,7 +50,7 @@ const PROVENANCE_STYLES: Record<
   },
   survey: {
     label: "Survey",
-    bg: "var(--plum-bg, #f1ebf0)",
+    bg: "#f1ebf0",
     fg: "var(--plum-400)",
     border: "#d8c8d6",
     dashed: true,
@@ -94,7 +83,10 @@ function ProvenanceTag({ kind }: { kind: Provenance }) {
 /** A percentage cell rendered as a small inline meter + value. */
 function MeterCell({ pct }: { pct: number }) {
   return (
-    <span className="inline-flex items-center gap-2" style={{ fontVariantNumeric: "tabular-nums" }}>
+    <span
+      className="inline-flex items-center gap-2"
+      style={{ fontVariantNumeric: "tabular-nums" }}
+    >
       <span
         style={{
           width: 52,
@@ -120,10 +112,17 @@ function MeterCell({ pct }: { pct: number }) {
   );
 }
 
-export function EngagementDepth({ data }: Props) {
-  const [scope, setScope] = useState<PeopleScope>("everyone");
-  const summary = data.scope[scope];
-  const isMembers = scope === "members";
+/**
+ * Engagement Depth section (concept, illustrative data).
+ *
+ * Lives on the Population page and follows its Everyone/Members toggle.
+ * Answers: "of the people in each part of the JCC — who else are they
+ * Jewishly?" by putting frequency and Jewish depth side by side per
+ * business unit.
+ */
+export function EngagementDepthSection({ segment }: Props) {
+  const data = MOCK_ENGAGEMENT_DEPTH;
+  const isMembers = segment === "members";
 
   const th: React.CSSProperties = {
     textAlign: "left",
@@ -151,71 +150,11 @@ export function EngagementDepth({ data }: Props) {
   };
 
   return (
-    <div className="space-y-6">
-      {/* ── Scope toggle ── */}
-      <div
-        className="inline-flex items-center gap-1 rounded-md p-1"
-        style={{ background: "var(--paper-100)", border: "1px solid var(--ds-border)" }}
-      >
-        {(["everyone", "members"] as PeopleScope[]).map((key) => {
-          const active = key === scope;
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setScope(key)}
-              className="rounded-md px-3 py-1.5 text-sm transition-colors"
-              style={{
-                background: active ? "var(--ink-800)" : "transparent",
-                color: active ? "var(--paper-50)" : "var(--ink-700)",
-                fontWeight: active ? 600 : 500,
-                cursor: "pointer",
-              }}
-            >
-              {SCOPE_LABELS[key]}
-              <span
-                className="ml-2 tabular-nums"
-                style={{
-                  fontSize: 11,
-                  color: active ? "var(--paper-200)" : "var(--ds-fg-muted)",
-                }}
-              >
-                {data.scope[key].people.toLocaleString()}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* ── KPI band (responds to scope) ── */}
-      <StatGrid cols={4}>
-        <StatCard
-          label="In view"
-          value={summary.people.toLocaleString()}
-          note={isMembers ? "Hold an active membership" : "Unique people, past 12 months"}
-        />
-        <StatCard
-          label="Households"
-          value={summary.households.toLocaleString()}
-          note={isMembers ? "Member households" : "The family, not the individual"}
-        />
-        <StatCard
-          label="Avg touches / yr"
-          value={summary.avgTouches}
-          note={isMembers ? "But mostly the gym" : "Half touch us once or twice"}
-        />
-        <StatCard
-          label="Visible Jewish tie"
-          value={`${summary.visibleJewishTiePct}%`}
-          note="Engaging Jewishly beyond the JCC"
-        />
-      </StatGrid>
-
-      {/* ── The matrix ── */}
+    <div className="space-y-4">
       <Panel>
         <PanelHeader
           title="How deeply Jewish is each business unit?"
-          sub="Frequency and Jewish depth are not the same thing"
+          sub="Frequency and Jewish depth are not the same thing · concept, illustrative data"
           actions={
             <div className="flex items-center gap-1.5">
               <ProvenanceTag kind="have" />
@@ -234,7 +173,7 @@ export function EngagementDepth({ data }: Props) {
               color: "var(--ds-fg-muted)",
             }}
           >
-            Members are almost entirely the{" "}
+            Your members are almost entirely the{" "}
             <b style={{ color: "var(--ink-800)" }}>Fitness &amp; wellness</b> row below
             (highlighted) — high frequency, lowest Jewish depth. The unit matrix itself
             describes everyone the JCC serves, where the strategic room to grow lives.
@@ -268,7 +207,7 @@ export function EngagementDepth({ data }: Props) {
                   <tr
                     key={u.key}
                     style={{
-                      background: highlight ? "var(--ochre-50, #faf4e6)" : "transparent",
+                      background: highlight ? "var(--ochre-50)" : "transparent",
                     }}
                   >
                     <td style={{ ...td, fontWeight: 600 }}>
@@ -313,7 +252,6 @@ export function EngagementDepth({ data }: Props) {
         </div>
       </Panel>
 
-      {/* ── Insight ── */}
       <InsightCard
         tone="growth"
         kicker="Action"
