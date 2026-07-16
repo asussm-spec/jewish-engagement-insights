@@ -607,12 +607,12 @@ export async function getPopulationForOrg(
       )
       .in("id", slice);
     if (pfsRes.error?.code === "42703") {
-      pfsRes = await supabase
+      pfsRes = (await supabase
         .from("people_profiles")
         .select(
           "id, date_of_birth, age_bucket, has_children, number_of_children, is_member, member_org_ids, attributes"
         )
-        .in("id", slice);
+        .in("id", slice)) as typeof pfsRes;
     }
     const idsRes = await supabase
       .from("people_identities")
