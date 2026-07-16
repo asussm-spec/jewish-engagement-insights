@@ -11,6 +11,7 @@ import {
 import { Upload, Users, CalendarDays } from "lucide-react";
 import { EventAttendanceWithFilter } from "@/components/events/event-attendance-with-filter";
 import { EventDemographicsSection } from "@/components/events/event-demographics-section";
+import { DemographicComparisonSection } from "@/components/events/demographic-comparison-section";
 
 const typeToneMap: Record<string, "ochre" | "default" | "moss"> = {
   shabbat: "ochre",
@@ -20,10 +21,17 @@ const typeToneMap: Record<string, "ochre" | "default" | "moss"> = {
   life_cycle: "default",
 };
 import {
-  getAttendanceComparison,
+  getAttendanceDistribution,
+  getDemographicComparison,
+  getBusinessUnitEngagement,
   getEventDemographics,
   getAvailableYears,
 } from "@/lib/event-analytics";
+
+// Fields now covered by the curated comparison charts (or removed on purpose,
+// like membership status) — excluded from the dynamic "more demographics" grid.
+const CURATED_FIELD_KEYS = new Set(["age_bucket", "denomination", "has_children", "is_member"]);
+const CURATED_ATTR_PATTERNS = [/day_school_enrolled/i, /hebrew_school/i];
 
 export default async function EventDetailPage({
   params,
@@ -52,13 +60,23 @@ export default async function EventDetailPage({
   const serviceClient = createServiceClient();
 
   // Load all data in parallel
-  const [attendance, demographics, availableYears] = await Promise.all([
-    getAttendanceComparison(supabase, id, event.organization_id, event.event_type, undefined, serviceClient),
-    getEventDemographics(supabase, id),
-    getAvailableYears(supabase, event.organization_id),
-  ]);
+  const [distribution, comparison, businessUnits, demographics, availableYears] =
+    await Promise.all([
+      getAttendanceDistribution(supabase, id, event.organization_id, event.event_type, undefined, serviceClient),
+      getDemographicComparison(supabase, id, event.organization_id, event.event_type, serviceClient),
+      getBusinessUnitEngagement(supabase, id, event.organization_id),
+      getEventDemographics(supabase, id),
+      getAvailableYears(supabase, event.organization_id),
+    ]);
 
-  const hasData = attendance.thisEvent > 0;
+  const hasData = distribution.thisEvent > 0;
+
+  // Only surface dynamic fields not already covered by curated comparisons
+  const extraDemographics = demographics.filter(
+    (f) =>
+      !CURATED_FIELD_KEYS.has(f.key) &&
+      !CURATED_ATTR_PATTERNS.some((re) => re.test(f.key))
+  );
 
   const dateStr = new Date(event.event_date).toLocaleDateString("en-US", {
     month: "long",
@@ -111,7 +129,7 @@ export default async function EventDetailPage({
       {hasData ? (
         <div className="space-y-8">
           <EventAttendanceWithFilter
-            initialAttendance={attendance}
+            initialDistribution={distribution}
             eventId={id}
             organizationId={event.organization_id}
             eventType={event.event_type}
@@ -131,13 +149,37 @@ export default async function EventDetailPage({
                 margin: 0,
               }}
             >
-              Event demographics
+              How this crowd compares
             </h2>
-            <EventDemographicsSection
-              fields={demographics}
-              totalAttendees={attendance.thisEvent}
+            <DemographicComparisonSection
+              fields={comparison}
+              businessUnits={businessUnits}
+              orgName={orgName}
+              eventTypeLabel={eventTypeLabel}
+              totalAttendees={distribution.thisEvent}
             />
           </div>
+
+          {extraDemographics.length > 0 && (
+            <div className="space-y-4">
+              <h2
+                className="font-serif"
+                style={{
+                  fontSize: 20,
+                  fontWeight: 500,
+                  color: "var(--ink-800)",
+                  letterSpacing: "-0.01em",
+                  margin: 0,
+                }}
+              >
+                More demographics
+              </h2>
+              <EventDemographicsSection
+                fields={extraDemographics}
+                totalAttendees={distribution.thisEvent}
+              />
+            </div>
+          )}
         </div>
       ) : (
         <Panel>

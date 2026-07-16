@@ -9,10 +9,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { EventAttendanceSection } from "./event-attendance-section";
-import type { AttendanceComparison } from "@/lib/event-analytics";
+import type { AttendanceDistribution } from "@/lib/event-analytics";
 
 interface Props {
-  initialAttendance: AttendanceComparison;
+  initialDistribution: AttendanceDistribution;
   eventId: string;
   organizationId: string;
   eventType: string;
@@ -55,7 +55,7 @@ function buildTimeframeOptions(years: number[]): TimeframeOption[] {
 }
 
 export function EventAttendanceWithFilter({
-  initialAttendance,
+  initialDistribution,
   eventId,
   organizationId,
   eventType,
@@ -64,14 +64,14 @@ export function EventAttendanceWithFilter({
   availableYears,
 }: Props) {
   const [timeframe, setTimeframe] = useState("all");
-  const [attendance, setAttendance] = useState(initialAttendance);
+  const [distribution, setDistribution] = useState(initialDistribution);
   const [loading, setLoading] = useState(false);
 
   const options = buildTimeframeOptions(availableYears);
 
   useEffect(() => {
     if (timeframe === "all") {
-      setAttendance(initialAttendance);
+      setDistribution(initialDistribution);
       return;
     }
 
@@ -89,13 +89,13 @@ export function EventAttendanceWithFilter({
         if (selected!.startDate) params.set("startDate", selected!.startDate);
         if (selected!.endDate) params.set("endDate", selected!.endDate);
 
-        const res = await fetch(`/api/events/attendance?${params}`);
+        const res = await fetch(`/api/events/attendance-distribution?${params}`);
         if (res.ok) {
           const data = await res.json();
-          setAttendance(data);
+          setDistribution(data);
         }
       } catch (err) {
-        console.error("Failed to fetch filtered attendance:", err);
+        console.error("Failed to fetch filtered distribution:", err);
       } finally {
         setLoading(false);
       }
@@ -107,12 +107,16 @@ export function EventAttendanceWithFilter({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold tracking-tight">Event Attendance</h2>
+        <h2 className="text-lg font-semibold tracking-tight">
+          Event Attendance
+        </h2>
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground">Timeframe:</span>
           <Select value={timeframe} onValueChange={(v) => setTimeframe(v ?? "all")}>
             <SelectTrigger className="w-[160px]">
-              <SelectValue />
+              <SelectValue>
+                {options.find((o) => o.value === timeframe)?.label ?? timeframe}
+              </SelectValue>
             </SelectTrigger>
             <SelectContent>
               {options.map((opt) => (
@@ -126,7 +130,7 @@ export function EventAttendanceWithFilter({
       </div>
       <div className={loading ? "opacity-50 transition-opacity" : ""}>
         <EventAttendanceSection
-          attendance={attendance}
+          distribution={distribution}
           orgName={orgName}
           eventTypeLabel={eventTypeLabel}
           organizationId={organizationId}
