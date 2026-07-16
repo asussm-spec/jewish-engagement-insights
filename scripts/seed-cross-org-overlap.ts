@@ -11,7 +11,10 @@
  * Of cross-affiliated members, ~30% also have at least 1–3 event_attendees
  * rows at the target org (using existing events at TBS, Camp Ramah, Schechter).
  *
- * Idempotent: upserts on natural keys. Safe to re-run.
+ * Idempotent: upserts on natural keys AND deterministic (seeded PRNG), so
+ * re-runs assign the same people to the same orgs instead of accumulating
+ * fresh random slices. Run rebalance-jcc-membership.ts first so is_member
+ * reflects the realistic minority membership slice.
  *
  * Run: npx tsx scripts/seed-cross-org-overlap.ts
  */
@@ -24,10 +27,24 @@ import { createServiceClient } from "../src/lib/supabase/service";
 const sb = createServiceClient();
 const JCC_NAME = "Greater Boston JCC";
 
-function shuffle<T>(arr: T[]): T[] {
+// Deterministic PRNG (mulberry32) so re-runs assign the SAME people to the
+// same orgs. With Math.random, every re-run sampled a fresh random slice and
+// affiliations accumulated far beyond the target percentages.
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a |= 0;
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffle<T>(arr: T[], rand: () => number): T[] {
   const a = arr.slice();
   for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rand() * (i + 1));
     [a[i], a[j]] = [a[j], a[i]];
   }
   return a;
@@ -174,10 +191,6 @@ async function main() {
   const jccUploadIds = (jccUploads ?? []).map((u) => u.id);
   const allJccPersonIds = await fetchAllPersonIdsForUpload(jccUploadIds);
   // Filter out synthetic children (their identity emails start with "child_")
-  const { data: realIdentities } = await sb
-    .from("people_identities")
-    .select("id, email")
-    .in("id", allJccPersonIds.slice(0, 0)); // placeholder — we batch below
   const adults: string[] = [];
   const BATCH = 100;
   for (let i = 0; i < allJccPersonIds.length; i += BATCH) {
@@ -192,10 +205,14 @@ async function main() {
       }
     }
   }
-  console.log(`JCC adult members: ${adults.length}`);
+  adults.sort(); // stable input order so seeded shuffles are reproducible
+  console.log(`JCC adults: ${adults.length}`);
 
   // ── 1. Synagogue cross-affiliation (~35% of adults) ─────────
-  const synEligible = shuffle(adults).slice(0, Math.floor(adults.length * 0.35));
+  const synEligible = shuffle(adults, mulberry32(101)).slice(
+    0,
+    Math.floor(adults.length * 0.35)
+  );
   // Pre-fetch each synagogue's primary upload
   const synUploadIdByOrg = new Map<string, string>();
   for (const s of synagogues) {
@@ -226,7 +243,10 @@ async function main() {
 
   // ── 2. Day schools (~12% of adults, spread across 5 schools) ──
   // Family of one school → 1 day-school affiliation. Distribution by weights.
-  const schoolEligible = shuffle(adults).slice(0, Math.floor(adults.length * 0.12));
+  const schoolEligible = shuffle(adults, mulberry32(202)).slice(
+    0,
+    Math.floor(adults.length * 0.12)
+  );
   const personSchoolOrg = new Map<string, string>(); // for downstream
   if (daySchools.length > 0) {
     const schoolUploadIdByOrg = new Map<string, string>();
@@ -247,7 +267,7 @@ async function main() {
       const w = DAY_SCHOOL_WEIGHTS[s.name] ?? 1;
       for (let k = 0; k < w; k++) schoolPool.push(s);
     }
-    const shuffledPool = shuffle(schoolPool);
+    const shuffledPool = shuffle(schoolPool, mulberry32(203));
     const schoolRows: { population_id: string; person_id: string }[] = [];
     let si = 0;
     for (const personId of schoolEligible) {
@@ -264,7 +284,10 @@ async function main() {
   }
 
   // ── 3. Camps (~14% of adults, spread across 7 camps) ─────────
-  const campEligible = shuffle(adults).slice(0, Math.floor(adults.length * 0.14));
+  const campEligible = shuffle(adults, mulberry32(301)).slice(
+    0,
+    Math.floor(adults.length * 0.14)
+  );
   const personCampOrg = new Map<string, string>();
   if (camps.length > 0) {
     const campUploadIdByOrg = new Map<string, string>();
@@ -284,7 +307,7 @@ async function main() {
       const w = CAMP_WEIGHTS[c.name] ?? 1;
       for (let k = 0; k < w; k++) campPool.push(c);
     }
-    const shuffledPool = shuffle(campPool);
+    const shuffledPool = shuffle(campPool, mulberry32(302));
     const campRows: { population_id: string; person_id: string }[] = [];
     let ci = 0;
     for (const personId of campEligible) {
@@ -313,12 +336,25 @@ async function main() {
       .select("id")
       .eq("organization_id", tbs.id);
     if (events && events.length > 0 && tbsMembers.length > 0) {
+      // Reset prior seeded TBS attendance for JCC adults — earlier random
+      // runs accumulated rows and made TBS dwarf every other synagogue.
+      const eventIds = events.map((e) => e.id as string);
+      for (let d = 0; d < adults.length; d += 100) {
+        const slice = adults.slice(d, d + 100);
+        const { error: delErr } = await sb
+          .from("event_attendees")
+          .delete()
+          .in("event_id", eventIds)
+          .in("person_id", slice);
+        if (delErr) console.error("  reset TBS attendance error:", delErr.message);
+      }
+      const rand = mulberry32(401);
       const sampleSize = Math.floor(tbsMembers.length * 0.5);
-      const sampledMembers = shuffle(tbsMembers).slice(0, sampleSize);
+      const sampledMembers = shuffle(tbsMembers.slice().sort(), rand).slice(0, sampleSize);
       const rows: { event_id: string; person_id: string }[] = [];
       for (const personId of sampledMembers) {
-        const numEvents = 1 + Math.floor(Math.random() * 3);
-        const pickedEvents = shuffle(events).slice(0, numEvents);
+        const numEvents = 1 + Math.floor(rand() * 3);
+        const pickedEvents = shuffle(events, rand).slice(0, numEvents);
         for (const ev of pickedEvents) {
           rows.push({ event_id: ev.id as string, person_id: personId });
         }
@@ -329,24 +365,26 @@ async function main() {
   }
 
   // ── 5. Update people_profiles.member_org_ids[] ───────────
-  // For each cross-affiliated person, append the new org_id to member_org_ids.
-  // (Aggregator could compute from joins, but keeping the column accurate is cheap.)
+  // Rebuild member_org_ids from this run's assignments. JCC membership is NOT
+  // granted here — is_member is owned by rebalance-jcc-membership.ts (only a
+  // minority of the JCC population are members); the JCC id is kept in
+  // member_org_ids only for people who already are members.
   const personOrgs = new Map<string, Set<string>>();
   for (const personId of allJccPersonIds) {
-    if (!personOrgs.has(personId)) personOrgs.set(personId, new Set([jcc.id]));
+    if (!personOrgs.has(personId)) personOrgs.set(personId, new Set());
   }
   for (const r of synRows) {
     const orgId = personSynOrg.get(r.person_id);
     if (!orgId) continue;
-    if (!personOrgs.has(r.person_id)) personOrgs.set(r.person_id, new Set([jcc.id]));
+    if (!personOrgs.has(r.person_id)) personOrgs.set(r.person_id, new Set());
     personOrgs.get(r.person_id)!.add(orgId);
   }
   for (const [personId, schoolOrgId] of personSchoolOrg) {
-    if (!personOrgs.has(personId)) personOrgs.set(personId, new Set([jcc.id]));
+    if (!personOrgs.has(personId)) personOrgs.set(personId, new Set());
     personOrgs.get(personId)!.add(schoolOrgId);
   }
   for (const [personId, campOrgId] of personCampOrg) {
-    if (!personOrgs.has(personId)) personOrgs.set(personId, new Set([jcc.id]));
+    if (!personOrgs.has(personId)) personOrgs.set(personId, new Set());
     personOrgs.get(personId)!.add(campOrgId);
   }
 
@@ -354,13 +392,22 @@ async function main() {
   const entries = Array.from(personOrgs.entries());
   for (let i = 0; i < entries.length; i += 100) {
     const slice = entries.slice(i, i + 100);
+    const { data: existing } = await sb
+      .from("people_profiles")
+      .select("id, is_member")
+      .in(
+        "id",
+        slice.map(([personId]) => personId)
+      );
+    const isMemberById = new Map(
+      (existing ?? []).map((p) => [p.id as string, Boolean(p.is_member)])
+    );
     for (const [personId, orgSet] of slice) {
+      const orgs = new Set(orgSet);
+      if (isMemberById.get(personId)) orgs.add(jcc.id);
       await sb
         .from("people_profiles")
-        .update({
-          is_member: true,
-          member_org_ids: Array.from(orgSet),
-        })
+        .update({ member_org_ids: Array.from(orgs) })
         .eq("id", personId);
       profileUpdates++;
     }

@@ -465,6 +465,34 @@ function humanizeEventType(t: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/**
+ * Map raw event_type values to business-unit labels for the per-org
+ * "what they do here" drill-down. Unmapped types fall back to a humanized
+ * version of the raw value.
+ */
+const BUSINESS_UNIT_BY_EVENT_TYPE: Record<string, string> = {
+  health_wellness: "Fitness & wellness",
+  youth_family: "Family programs",
+  family: "Family programs",
+  institutional: "Early childhood",
+  holiday_calendar: "Holidays & festivals",
+  holiday: "Holidays & festivals",
+  worship_prayer: "Holidays & festivals",
+  shabbat: "Holidays & festivals",
+  community_social: "Adult & senior",
+  social: "Adult & senior",
+  cultural: "Arts & culture",
+  arts_culture: "Arts & culture",
+  learning_education: "Adult learning",
+  educational: "Adult learning",
+  youth: "Youth & teen",
+  fundraiser: "Community events",
+};
+
+function businessUnitFor(eventType: string): string {
+  return BUSINESS_UNIT_BY_EVENT_TYPE[eventType] ?? humanizeEventType(eventType);
+}
+
 const ORG_TYPE_LABELS: Record<string, string> = {
   synagogue: "Synagogues",
   jcc: "JCCs",
@@ -595,7 +623,7 @@ function computeCrossOrg(
       for (const personId of peopleSet) {
         const units = new Set<string>();
         for (const a of attendancesByPerson.get(personId) ?? []) {
-          if (a.orgId === thisOrgId) units.add(humanizeEventType(a.eventType));
+          if (a.orgId === thisOrgId) units.add(businessUnitFor(a.eventType));
         }
         if (memberIds.has(personId)) units.add("Membership");
         for (const u of units) {
