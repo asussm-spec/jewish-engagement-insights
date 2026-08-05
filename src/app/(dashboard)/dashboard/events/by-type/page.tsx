@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatDateOnly } from "@/lib/utils";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -87,11 +88,7 @@ export default async function EventsByTypePage({
                     )}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {new Date(event.event_date).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })}
+                    {formatDateOnly(event.event_date)}
                   </TableCell>
                   <TableCell className="text-right font-medium">
                     {event.attendee_count || 0}

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { formatDateOnly } from "@/lib/utils";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
@@ -151,11 +152,7 @@ export default async function EventsPage() {
                       )}
                     </Td>
                     <Td style={{ color: "var(--ds-fg-muted)" }}>
-                      {new Date(event.event_date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {formatDateOnly(event.event_date)}
                     </Td>
                     <Td
                       style={{

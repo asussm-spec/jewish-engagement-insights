@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { formatDateOnly } from "@/lib/utils";
 import {
   Card,
   CardContent,
@@ -163,11 +164,7 @@ export function EventAttendanceSection({
                       </Link>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {new Date(event.event_date).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {formatDateOnly(event.event_date)}
                     </TableCell>
                     <TableCell className="text-right font-medium">
                       {event.attendee_count || 0}

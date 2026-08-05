@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/supabase/service";
+import { formatDateOnly } from "@/lib/utils";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import {
@@ -78,7 +79,7 @@ export default async function EventDetailPage({
       !CURATED_ATTR_PATTERNS.some((re) => re.test(f.key))
   );
 
-  const dateStr = new Date(event.event_date).toLocaleDateString("en-US", {
+  const dateStr = formatDateOnly(event.event_date, {
     month: "long",
     day: "numeric",
     year: "numeric",

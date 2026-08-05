@@ -1,5 +1,7 @@
 import { cookies } from "next/headers";
+import { unstable_cache } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import {
@@ -13,6 +15,26 @@ import {
   DsButton,
 } from "@/components/layout/page-primitives";
 import { CalendarDays, Upload, Users, Plus } from "lucide-react";
+import { getPopulationForOrg } from "@/lib/population-aggregator";
+
+// Same cache key as the Population page so the two screens always agree on the
+// headline number and share one aggregation pass.
+const getCachedPopulation = unstable_cache(
+  async (orgId: string) => {
+    const service = createServiceClient();
+    return getPopulationForOrg(service, orgId);
+  },
+  ["population-real-v9"],
+  { revalidate: 300, tags: ["population"] }
+);
+
+function formatUploadDate(iso: string): string {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 export default async function DashboardPage() {
   const cookieStore = await cookies();
@@ -22,6 +44,7 @@ export default async function DashboardPage() {
   let orgName = "Temple Beth Shalom";
   let eventCount: number | null = 12;
   let populationCount: number | null = 412;
+  let latestUpload: { name: string; date: string } | null = null;
 
   if (!isDemo) {
     const supabase = await createClient();
@@ -43,15 +66,26 @@ export default async function DashboardPage() {
       .select("*", { count: "exact", head: true })
       .eq("organization_id", profile.organization_id);
 
-    const { count: populationCountResult } = await supabase
-      .from("participants")
-      .select("*", { count: "exact", head: true })
-      .eq("organization_id", profile.organization_id);
+    // Population is the deduplicated union of uploaded members and event
+    // attendees — the same aggregation the Population page renders, so both
+    // screens show the same headline number.
+    const population = await getCachedPopulation(profile.organization_id);
+
+    const { data: lastUpload } = await supabase
+      .from("population_uploads")
+      .select("name, created_at")
+      .eq("organization_id", profile.organization_id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     firstName = profile.full_name?.split(" ")[0] || "there";
     orgName = profile.organizations?.name || "";
     eventCount = eventCountResult;
-    populationCount = populationCountResult;
+    populationCount = population.segments.all.totalMembers;
+    latestUpload = lastUpload
+      ? { name: lastUpload.name, date: formatUploadDate(lastUpload.created_at) }
+      : null;
   }
 
   return (
@@ -92,8 +126,8 @@ export default async function DashboardPage() {
             />
             <StatCard
               label="Latest upload"
-              value="—"
-              note="No data yet"
+              value={latestUpload?.date ?? "—"}
+              note={latestUpload?.name ?? "No data yet"}
             />
             <StatCard
               label="Engagement index"
