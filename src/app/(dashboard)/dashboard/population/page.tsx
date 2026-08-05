@@ -23,7 +23,7 @@ const getCachedDemo = unstable_cache(
     const service = createServiceClient();
     return getPopulationByOrgName(service, DEMO_ORG_NAME);
   },
-  ["population-demo-v9"],
+  ["population-demo-v11"],
   { revalidate: 300, tags: ["population"] }
 );
 
@@ -32,7 +32,7 @@ const getCachedReal = unstable_cache(
     const service = createServiceClient();
     return getPopulationForOrg(service, orgId);
   },
-  ["population-real-v9"],
+  ["population-real-v11"],
   { revalidate: 300, tags: ["population"] }
 );
 

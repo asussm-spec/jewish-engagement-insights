@@ -599,7 +599,10 @@ function OrgTypePanel({
           <div>
             {visibleOrgs.map((org, i) => {
               const expanded = expandedOrgId === org.orgId;
-              const maxUnit = Math.max(1, ...org.unitBreakdown.map((u) => u.people));
+              // Bars read as a share of the households this org shares with us,
+              // not relative to the largest bar — so a unit that only a third of
+              // them touch looks like a third.
+              const unitDenominator = Math.max(1, org.households);
               return (
                 <div
                   key={org.orgId}
@@ -717,7 +720,7 @@ function OrgTypePanel({
                               >
                                 <div
                                   style={{
-                                    width: `${Math.round((u.people / maxUnit) * 100)}%`,
+                                    width: `${Math.min(100, Math.round((u.households / unitDenominator) * 100))}%`,
                                     height: "100%",
                                     background: "var(--ochre-400)",
                                   }}
@@ -734,7 +737,7 @@ function OrgTypePanel({
                                   textAlign: "right",
                                 }}
                               >
-                                {u.people}
+                                {u.households}
                               </div>
                             </div>
                           ))}

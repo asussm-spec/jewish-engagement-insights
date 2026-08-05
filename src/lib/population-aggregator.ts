@@ -60,6 +60,7 @@ interface GlobalEvent {
   id: string;
   organization_id: string;
   event_type: string;
+  name: string;
 }
 
 export interface CrossOrgInsights {
@@ -96,7 +97,7 @@ export interface CrossOrgInsights {
     people: number;
     households: number;
     /** What this org's shared people do at *this* org (business units) */
-    unitBreakdown: { unit: string; people: number }[];
+    unitBreakdown: { unit: string; households: number }[];
   }[];
   /** For each event_type, count of distinct people attending at this org vs. other orgs */
   programShare: {
@@ -466,31 +467,50 @@ function humanizeEventType(t: string): string {
 }
 
 /**
- * Map raw event_type values to business-unit labels for the per-org
- * "what they do here" drill-down. Unmapped types fall back to a humanized
- * version of the raw value.
+ * Business units for the per-org "what they do here" drill-down.
+ *
+ * Deliberately coarse: the question this panel answers is "which side of the
+ * house do these shared families touch?", and a JCC's answer is membership,
+ * early childhood, camp, or everything else. Order here is the display order.
  */
-const BUSINESS_UNIT_BY_EVENT_TYPE: Record<string, string> = {
-  health_wellness: "Fitness & wellness",
-  youth_family: "Family programs",
-  family: "Family programs",
-  institutional: "Early childhood",
-  holiday_calendar: "Holidays & festivals",
-  holiday: "Holidays & festivals",
-  worship_prayer: "Holidays & festivals",
-  shabbat: "Holidays & festivals",
-  community_social: "Adult & senior",
-  social: "Adult & senior",
-  cultural: "Arts & culture",
-  arts_culture: "Arts & culture",
-  learning_education: "Adult learning",
-  educational: "Adult learning",
-  youth: "Youth & teen",
-  fundraiser: "Community events",
-};
+export const BUSINESS_UNITS = [
+  "Membership",
+  "Early childhood",
+  "Camp",
+  "Other programs",
+] as const;
 
-function businessUnitFor(eventType: string): string {
-  return BUSINESS_UNIT_BY_EVENT_TYPE[eventType] ?? humanizeEventType(eventType);
+// event_type is too coarse to separate early childhood and camp from general
+// programming (a preschool open house and a town hall are both `institutional`),
+// so those two are matched on the event name.
+const EARLY_CHILDHOOD_PATTERNS = [
+  /\bpreschool\b/i,
+  /\bpre-?k\b/i,
+  /\bpj library\b/i,
+  /\btot\b/i,
+  /\bearly childhood\b/i,
+  /\btoddler\b/i,
+  /\binfant\b/i,
+  /\bnursery\b/i,
+  /\bparent(ing)? (&|and) me\b/i,
+];
+
+const CAMP_PATTERNS = [
+  /\bcamp\b/i,
+  /\bcit\b/i,
+  /counselor.in.training/i,
+  /\bmaccabi\b/i,
+];
+
+function businessUnitFor(eventType: string, eventName: string): string {
+  if (CAMP_PATTERNS.some((re) => re.test(eventName))) return "Camp";
+  if (EARLY_CHILDHOOD_PATTERNS.some((re) => re.test(eventName))) {
+    return "Early childhood";
+  }
+  // A couple of event types are unambiguous on their own.
+  if (eventType === "camp") return "Camp";
+  if (eventType === "early_childhood") return "Early childhood";
+  return "Other programs";
 }
 
 const ORG_TYPE_LABELS: Record<string, string> = {
@@ -507,7 +527,10 @@ const ORG_TYPE_LABELS: Record<string, string> = {
 function computeCrossOrg(
   thisOrgId: string,
   profiles: ProfileRow[],
-  attendancesByPerson: Map<string, { eventType: string; orgId: string }[]>,
+  attendancesByPerson: Map<
+    string,
+    { eventType: string; orgId: string; eventName: string }[]
+  >,
   orgsById: Map<string, OrgRow>,
   householdOf: Map<string, string>
 ): CrossOrgInsights {
@@ -530,7 +553,15 @@ function computeCrossOrg(
 
   const hh = (personId: string) => householdOf.get(personId) ?? personId;
   const totalHouseholds = new Set(profiles.map((p) => hh(p.id))).size;
-  const memberIds = new Set(profiles.filter(isCurrentMember).map((p) => p.id));
+  // Membership must be scoped to THIS org. `is_member` is a global flag —
+  // true for anyone who belongs to any organization — so using it here counted
+  // a synagogue's own members as members of this org, making the Membership bar
+  // approach 100% of every overlap. member_org_ids is the per-org record.
+  const memberIds = new Set(
+    profiles
+      .filter((p) => (p.member_org_ids ?? []).includes(thisOrgId))
+      .map((p) => p.id)
+  );
 
   // Per person — orgs they touch via membership AND via event attendance
   const orgsTouchedPerPerson = new Map<string, Set<string>>();
@@ -617,31 +648,35 @@ function computeCrossOrg(
   const topOverlappingOrgs = Array.from(peopleByOtherOrg.entries())
     .map(([orgId, peopleSet]) => {
       const meta = orgsById.get(orgId);
-      // What this org's shared people do at *this* org (business units):
-      // this-org event types + membership, deduped per person per unit.
-      const unitPeople = new Map<string, Set<string>>();
+      // What this org's shared people do at *this* org, deduped per household
+      // per unit. Households — not people — so the bars are directly readable
+      // as a fraction of the household count shown on the row.
+      const unitHouseholds = new Map<string, Set<string>>();
       for (const personId of peopleSet) {
         const units = new Set<string>();
         for (const a of attendancesByPerson.get(personId) ?? []) {
-          if (a.orgId === thisOrgId) units.add(businessUnitFor(a.eventType));
+          if (a.orgId === thisOrgId) {
+            units.add(businessUnitFor(a.eventType, a.eventName));
+          }
         }
         if (memberIds.has(personId)) units.add("Membership");
         for (const u of units) {
-          if (!unitPeople.has(u)) unitPeople.set(u, new Set());
-          unitPeople.get(u)!.add(personId);
+          if (!unitHouseholds.has(u)) unitHouseholds.set(u, new Set());
+          unitHouseholds.get(u)!.add(hh(personId));
         }
       }
-      const unitBreakdown = Array.from(unitPeople.entries())
-        .map(([unit, set]) => ({ unit, people: set.size }))
-        .sort((a, b) => b.people - a.people)
-        .slice(0, 6);
+      const households = new Set(Array.from(peopleSet).map(hh)).size;
+      const unitBreakdown = BUSINESS_UNITS.map((unit) => ({
+        unit: unit as string,
+        households: unitHouseholds.get(unit)?.size ?? 0,
+      })).filter((u) => u.households > 0);
       return {
         orgId,
         name: meta?.name ?? "Unknown",
         orgType: meta?.org_type ?? "other",
         subtype: meta?.subtype ?? null,
         people: peopleSet.size,
-        households: new Set(Array.from(peopleSet).map(hh)).size,
+        households,
         unitBreakdown,
       };
     })
@@ -858,7 +893,7 @@ export async function getPopulationForOrg(
 
   const { data: allEventsRows } = await supabase
     .from("events")
-    .select("id, organization_id, event_type");
+    .select("id, organization_id, event_type, name");
   const globalEventById = new Map<string, GlobalEvent>(
     (allEventsRows ?? []).map((e) => [e.id as string, e as GlobalEvent])
   );
@@ -866,7 +901,7 @@ export async function getPopulationForOrg(
   // For each segment person, fetch all their event_attendees rows globally
   const attendancesByPerson = new Map<
     string,
-    { eventType: string; orgId: string }[]
+    { eventType: string; orgId: string; eventName: string }[]
   >();
   for (let i = 0; i < personIdList.length; i += BATCH) {
     const slice = personIdList.slice(i, i + BATCH);
@@ -887,6 +922,7 @@ export async function getPopulationForOrg(
         attendancesByPerson.get(pid)!.push({
           eventType: ev.event_type,
           orgId: ev.organization_id,
+          eventName: ev.name ?? "",
         });
       }
       if (rows.length < PAGE) break;

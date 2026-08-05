@@ -24,7 +24,7 @@ const getCachedPopulation = unstable_cache(
     const service = createServiceClient();
     return getPopulationForOrg(service, orgId);
   },
-  ["population-real-v9"],
+  ["population-real-v11"],
   { revalidate: 300, tags: ["population"] }
 );
 
