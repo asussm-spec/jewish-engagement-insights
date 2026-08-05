@@ -9,12 +9,12 @@ const collectedFields = [
 ];
 
 const communityFields = [
-  "Attended Jewish day school",
-  "Kids in Jewish day school",
   "Belongs to a synagogue",
   "Denomination",
   "Interfaith household",
   "Attends Jewish overnight camp",
+  "Attended Jewish day school",
+  "Kids in Jewish day school",
 ];
 
 function FmCheck() {
