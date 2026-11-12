@@ -1,0 +1,41 @@
+# Keeps the free-tier Supabase project from auto-pausing.
+# Supabase pauses free projects after 7 days without database activity.
+# This runs twice a week in GitHub's cloud, so it doesn't depend on a laptop being awake.
+name: Supabase keep-alive
+
+on:
+  schedule:
+    - cron: "17 14 * * 1,4" # Mondays and Thursdays, 14:17 UTC
+  workflow_dispatch:
+
+permissions:
+  actions: write # lets the job re-enable itself (GitHub disables schedules after 60 days of repo inactivity)
+  contents: read
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Query the database
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          for table in organizations events people_identities; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
+              "$SUPABASE_URL/rest/v1/$table?select=id&limit=1" \
+              -H "apikey: $SUPABASE_ANON_KEY" \
+              -H "Authorization: Bearer $SUPABASE_ANON_KEY")
+            echo "$table: HTTP $code"
+            if [ "$code" != "200" ]; then
+              echo "::error::Supabase ping failed for $table (HTTP $code). The project may be paused — restore it in the dashboard."
+              exit 1
+            fi
+          done
+
+      - name: Keep this schedule from being auto-disabled
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/supabase-keep-alive.yml/enable"
