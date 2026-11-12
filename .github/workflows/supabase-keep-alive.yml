@@ -24,7 +24,7 @@ jobs:
           set -euo pipefail
           for table in organizations events people_identities; do
             code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 \
-              "$SUPABASE_URL/rest/v1/$table?select=id&limit=1" \
+              "$SUPABASE_URL/rest/v1/$table?select=*&limit=1" \
               -H "apikey: $SUPABASE_ANON_KEY" \
               -H "Authorization: Bearer $SUPABASE_ANON_KEY")
             echo "$table: HTTP $code"
